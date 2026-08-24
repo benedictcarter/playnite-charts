@@ -284,6 +284,10 @@
                     <TextBlock Text="APPEARANCE  (all plots)" Style="{StaticResource SectionHeader}" />
                     <CheckBox Content="Show legend" IsChecked="{Binding DataContext.View.ShowLegend, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,3"
                               Foreground="{DynamicResource TextBrush}" />
+                    <CheckBox Content="Show game titles"
+                              IsChecked="{Binding DataContext.View.ShowTitles, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,3"
+                              Foreground="{DynamicResource TextBrush}"
+                              ToolTip="Write each game's name beside its bubble. Where names collide the one with the higher user score keeps its label; hovering always shows the name." />
                     <CheckBox Content="Count a missing number as 0" IsChecked="{Binding DataContext.View.MissingAsZero, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,3"
                               Foreground="{DynamicResource TextBrush}"
                               ToolTip="Plot games with no user score, no critic score etc. at zero instead of leaving them out. Dates are never zeroed." />

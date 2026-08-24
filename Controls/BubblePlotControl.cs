@@ -53,6 +53,13 @@ namespace PlayniteCharts.Controls
         private Rect plotRect;
         private PlotTheme theme;
         private PlotPoint hovered;
+
+        // measuring one FormattedText per game is the expensive half of drawing
+        // titles, and hovering re-runs the layout - so measure each name once
+        private readonly Dictionary<PlotPoint, FormattedText> labelCache =
+            new Dictionary<PlotPoint, FormattedText>();
+        private readonly Dictionary<PlotPoint, FormattedText> shadowCache =
+            new Dictionary<PlotPoint, FormattedText>();
         private List<PlotPoint> drawOrder = new List<PlotPoint>();
         private double pixelsPerDip = 1.0;
 
@@ -101,6 +108,8 @@ namespace PlayniteCharts.Controls
         private static void OnModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var c = (BubblePlotControl)d;
+            c.labelCache.Clear();
+            c.shadowCache.Clear();
             c.hovered = null;
             c.Redraw();
         }
@@ -114,6 +123,9 @@ namespace PlayniteCharts.Controls
         /// <summary>Forces the palette to be re-picked, e.g. after a theme switch.</summary>
         public void InvalidateTheme()
         {
+            // the ink colour is baked into each measured label
+            labelCache.Clear();
+            shadowCache.Clear();
             theme = null;
             Redraw();
         }
@@ -613,13 +625,27 @@ namespace PlayniteCharts.Controls
             using (var dc = overlayVisual.RenderOpen())
             {
                 var m = Model;
-                var p = hovered;
-                if (m == null || p == null)
+                if (m == null || m.Problem != null || plotRect.Width < 10)
                 {
                     return;
                 }
 
                 var t = EnsureTheme();
+
+                // titles live on the overlay, not the chart: the hovered game always
+                // gets its name, which re-runs the layout on every hover change, and
+                // that must not mean redrawing every bubble
+                if (m.ShowTitles)
+                {
+                    DrawTitles(dc, m, t);
+                }
+
+                var p = hovered;
+                if (p == null)
+                {
+                    return;
+                }
+
                 var c = new Point(ToScreenX(m, p.X), ToScreenY(m, p.Y));
                 if (dragging)
                 {
@@ -651,6 +677,105 @@ namespace PlayniteCharts.Controls
                     DrawTooltip(dc, m, t, p, c);
                 }
             }
+        }
+
+        private const double TitleSize = 11;
+        private const double TitleGap = 4;
+
+        /// <summary>
+        /// Names beside the bubbles, best-effort. Each label is tried level with its
+        /// bubble first, then one line up, then one line down; if all three collide
+        /// with a label already placed, this game goes without. Highest LabelRank is
+        /// laid out first, so it is the low-scoring games that lose their name - and
+        /// the hovered game is laid out before everything, evicting whatever would
+        /// otherwise have sat where its name goes.
+        /// </summary>
+        private void DrawTitles(DrawingContext dc, PlotModel m, PlotTheme t)
+        {
+            var order = m.Points
+                .OrderByDescending(p => ReferenceEquals(p, hovered))
+                .ThenByDescending(p => p.LabelRank)
+                .ToList();
+
+            var placed = new List<Rect>();
+            var line = TitleSize + 3;
+            foreach (var p in order)
+            {
+                var label = Label(p, t);
+                if (label.Width > plotRect.Width / 2)
+                {
+                    continue;
+                }
+
+                var c = new Point(ToScreenX(m, p.X), ToScreenY(m, p.Y));
+
+                // to the right of the bubble, or to its left if that would leave the plot
+                var x = c.X + p.Radius + TitleGap;
+                if (x + label.Width > plotRect.Right)
+                {
+                    x = c.X - p.Radius - TitleGap - label.Width;
+                }
+
+                if (x < plotRect.Left)
+                {
+                    continue;
+                }
+
+                var box = Rect.Empty;
+                foreach (var dy in new[] { 0.0, -line, line })
+                {
+                    var candidate = new Rect(x, c.Y - label.Height / 2 + dy, label.Width, label.Height);
+                    if (candidate.Top < plotRect.Top || candidate.Bottom > plotRect.Bottom)
+                    {
+                        continue;
+                    }
+
+                    // 2px of surface between neighbours, so adjacent names stay two names
+                    var probe = candidate;
+                    probe.Inflate(2, 1);
+                    if (placed.Any(r => r.IntersectsWith(probe)))
+                    {
+                        continue;
+                    }
+
+                    box = candidate;
+                    break;
+                }
+
+                if (box.IsEmpty)
+                {
+                    continue;
+                }
+
+                placed.Add(box);
+
+                // a one-pixel surface shadow keeps the name readable over a bubble
+                var origin = box.Location;
+                dc.DrawText(Shadow(p, t), new Point(origin.X + 1, origin.Y + 1));
+                dc.DrawText(label, origin);
+            }
+        }
+
+        private FormattedText Label(PlotPoint p, PlotTheme t)
+        {
+            if (!labelCache.TryGetValue(p, out var label))
+            {
+                label = Text(p.Game?.Name ?? string.Empty, t.InkBrush, TitleSize);
+                labelCache[p] = label;
+            }
+
+            return label;
+        }
+
+        private FormattedText Shadow(PlotPoint p, PlotTheme t)
+        {
+            if (!shadowCache.TryGetValue(p, out var shadow))
+            {
+                shadow = Text(p.Game?.Name ?? string.Empty, t.SurfaceBrush, TitleSize);
+                shadowCache[p] = shadow;
+            }
+
+            return shadow;
         }
 
         /// <summary>The rail the mark is sliding on, so the constraint is visible.</summary>

@@ -18,6 +18,11 @@ namespace PlayniteCharts.Model
         public int ShapeSlot { get; set; }
         public string ColorKey { get; set; }
         public string ShapeKey { get; set; }
+
+        /// <summary>Who keeps their title when titles collide: the highest user
+        /// score wins, and critic + community score break ties on equal user score.
+        /// A game with no user score at all ranks below one scored zero.</summary>
+        public double LabelRank { get; set; }
     }
 
     /// <summary>
@@ -100,6 +105,8 @@ namespace PlayniteCharts.Model
         /// <summary>From the shared view settings, snapshotted at build time.</summary>
         public bool ShowLegend { get; set; } = true;
 
+        public bool ShowTitles { get; set; }
+
         public PlotConfig Config { get; set; }
         public GameColumn XField { get; set; }
         public GameColumn YField { get; set; }
@@ -154,6 +161,7 @@ namespace PlayniteCharts.Model
         {
             var m = new PlotModel { Config = config, TotalGames = games.Count };
             m.ShowLegend = view.ShowLegend;
+            m.ShowTitles = view.ShowTitles;
             m.XField = GameColumns.Get(config.XFieldId);
             m.YField = GameColumns.Get(config.YFieldId);
             m.SizeField = GameColumns.Get(config.SizeFieldId);
@@ -209,6 +217,10 @@ namespace PlayniteCharts.Model
 
             var defaultR = m.SizeField == null ? (minR + maxR) / 2 : minR;
 
+            var userScore = GameColumns.Get("userscore");
+            var criticScore = GameColumns.Get("criticscore");
+            var communityScore = GameColumns.Get("communityscore");
+
             foreach (var g in games)
             {
                 var x = read(m.XField, g);
@@ -228,9 +240,16 @@ namespace PlayniteCharts.Model
                     }
                 }
 
+                // user score dominates: a scored game outranks any unscored one
+                // whatever its critic score, so the two are on separate decades
+                var rank = (userScore.GetNumber(g) ?? -1) * 1000
+                    + (criticScore.GetNumber(g) ?? 0)
+                    + (communityScore.GetNumber(g) ?? 0);
+
                 m.Points.Add(new PlotPoint
                 {
                     Game = g,
+                    LabelRank = rank,
                     X = x.Value,
                     Y = y.Value,
                     Radius = r,

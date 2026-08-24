@@ -18,6 +18,7 @@ namespace PlayniteCharts.Model
         private List<string> hoverFieldIds = new List<string> { "name", "playtime" };
         private List<FilterConfig> filters = new List<FilterConfig>();
         private bool showLegend = true;
+        private bool showTitles;
         private bool missingAsZero;
         private double minBubbleSize = 3;
         private double maxBubbleSize = 12;
@@ -39,6 +40,13 @@ namespace PlayniteCharts.Model
         {
             get => showLegend;
             set => SetValue(ref showLegend, value);
+        }
+
+        /// <summary>Write each game's name beside its bubble, as far as they fit.</summary>
+        public bool ShowTitles
+        {
+            get => showTitles;
+            set => SetValue(ref showTitles, value);
         }
 
         /// <summary>Plot a game with no value on a numeric channel at 0 instead of

@@ -97,6 +97,15 @@ namespace PlayniteCharts.DevHarness
                     Console.WriteLine($"{file}  ({model.PlottedGames} of {model.TotalGames} plotted)");
                 }
 
+                var titled = PlotModel.Build(cfg, new ViewSettings
+                {
+                    HoverFieldIds = view.HoverFieldIds,
+                    ShowTitles = true
+                }, games, games, PlotTheme.SeriesCapacity, MarkShapes.Count);
+                var titleFile = Path.Combine(outDir, $"{Slug(cfg.Name)}-titles.png");
+                Render(titled, surfaces[0].Color, titleFile, false);
+                Console.WriteLine(titleFile);
+
                 var hoverFile = Path.Combine(outDir, $"{Slug(cfg.Name)}-hover.png");
                 Render(model, surfaces[0].Color, hoverFile, true);
                 Console.WriteLine(hoverFile);
