@@ -350,7 +350,8 @@ namespace PlayniteCharts.ViewModels
                 return games;
             }
 
-            return games.Where(g => active.All(pair => pair.Key.Passes(pair.Value, g))).ToList();
+            var zeros = selectedPlot.MissingAsZero;
+            return games.Where(g => active.All(pair => pair.Key.Passes(pair.Value, g, zeros))).ToList();
         }
 
         /// <summary>Rebuilds the filter rows from the selected plot's saved filters.</summary>
@@ -367,7 +368,8 @@ namespace PlayniteCharts.ViewModels
             selectedPlot.Filters.RemoveAll(f => GameColumns.Get(f.FieldId) == null);
             foreach (var f in selectedPlot.Filters)
             {
-                Filters.Add(new FilterViewModel(GameColumns.Get(f.FieldId), f, domainSource, OnFilterChanged));
+                Filters.Add(new FilterViewModel(GameColumns.Get(f.FieldId), f, domainSource,
+                    selectedPlot.MissingAsZero, OnFilterChanged));
             }
 
             OnPropertyChanged(nameof(HasFilters));
@@ -505,6 +507,13 @@ namespace PlayniteCharts.ViewModels
             }
             else
             {
+                // the zero substitution moves the bottom of every numeric range,
+                // so the sliders have to be rebuilt, not just re-applied
+                if (e.PropertyName == nameof(PlotConfig.MissingAsZero))
+                {
+                    SyncFilters();
+                }
+
                 Rebuild();
             }
 

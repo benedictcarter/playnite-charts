@@ -72,7 +72,7 @@ namespace PlayniteCharts.DevHarness
                 return;
             }
 
-            Filters.Add(new FilterViewModel(field, new FilterConfig { FieldId = fieldId }, library, () => { }));
+            Filters.Add(new FilterViewModel(field, new FilterConfig { FieldId = fieldId }, library, false, () => { }));
         }
     }
 }

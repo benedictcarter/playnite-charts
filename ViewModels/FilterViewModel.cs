@@ -34,6 +34,7 @@ namespace PlayniteCharts.ViewModels
     public class FilterViewModel : ObservableObject
     {
         private readonly Action changed;
+        private readonly bool missingAsZero;
         private bool loading = true;
         private double lower;
         private double upper;
@@ -46,10 +47,12 @@ namespace PlayniteCharts.ViewModels
         public RelayCommand<object> AllCommand { get; }
         public RelayCommand<object> NoneCommand { get; }
 
-        public FilterViewModel(GameColumn field, FilterConfig config, IEnumerable<Game> library, Action changed)
+        public FilterViewModel(GameColumn field, FilterConfig config, IEnumerable<Game> library,
+            bool missingAsZero, Action changed)
         {
             Field = field;
             Config = config;
+            this.missingAsZero = missingAsZero && field.Kind == FieldKind.Numeric;
             this.changed = changed;
 
             AllCommand = new RelayCommand<object>(_ => SetAll(true));
@@ -140,6 +143,12 @@ namespace PlayniteCharts.ViewModels
             foreach (var g in library)
             {
                 var v = Field.GetNumber?.Invoke(g);
+                if (!v.HasValue && missingAsZero)
+                {
+                    // the plot draws these at 0, so the slider has to be able to reach them
+                    v = 0;
+                }
+
                 if (v.HasValue)
                 {
                     min = Math.Min(min, v.Value);

@@ -23,7 +23,13 @@ namespace PlayniteCharts.Model
         /// <summary>A filter that lets everything through, i.e. not worth applying.</summary>
         public bool IsInert => !Lower.HasValue && !Upper.HasValue && (Excluded == null || Excluded.Count == 0);
 
-        public bool Passes(GameColumn field, Game game)
+        /// <summary>
+        /// <paramref name="missingAsZero"/> is the plot's own setting: when it is on
+        /// the plot draws a missing number at 0, so the filter has to agree - reading
+        /// it as "no value" would quietly delete the bubbles the plot is showing.
+        /// Dates are excluded, exactly as in PlotModel.
+        /// </summary>
+        public bool Passes(GameColumn field, Game game, bool missingAsZero)
         {
             if (field == null || IsInert)
             {
@@ -33,6 +39,11 @@ namespace PlayniteCharts.Model
             if (field.IsContinuous)
             {
                 var v = field.GetNumber?.Invoke(game);
+                if (!v.HasValue && missingAsZero && field.Kind == FieldKind.Numeric)
+                {
+                    v = 0;
+                }
+
                 if (!v.HasValue)
                 {
                     // no value can be neither inside nor outside a range; once the

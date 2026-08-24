@@ -258,6 +258,7 @@
                                     <ContextMenu.ItemContainerStyle>
                                         <Style TargetType="MenuItem">
                                             <Setter Property="Header" Value="{Binding Name}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                                             <Setter Property="Command"
                                                     Value="{Binding DataContext.AddFilterCommand,
                                                         RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
