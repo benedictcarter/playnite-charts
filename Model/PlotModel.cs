@@ -128,8 +128,17 @@ namespace PlayniteCharts.Model
                 return (MinRadius + MaxRadius) / 2;
             }
 
-            var t = Math.Max(0, Math.Min(1, (value - SizeMin) / (SizeMax - SizeMin)));
-            return Math.Sqrt(MinRadius * MinRadius + t * (MaxRadius * MaxRadius - MinRadius * MinRadius));
+            // the AREA carries the number, and it is anchored at zero: twice the
+            // value is twice the ink. Data that goes below zero has no honest zero
+            // anchor, so there the area spans the observed range instead.
+            var t = SizeMin >= 0 && SizeMax > 0
+                ? value / SizeMax
+                : (value - SizeMin) / (SizeMax - SizeMin);
+
+            t = Math.Max(0, Math.Min(1, t));
+
+            // the floor only exists so the smallest marks stay visible
+            return Math.Max(MinRadius, MaxRadius * Math.Sqrt(t));
         }
 
         public int TotalGames { get; set; }
