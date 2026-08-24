@@ -75,6 +75,9 @@ namespace PlayniteCharts.Controls
 
         public event EventHandler<PlotPoint> PointActivated;
 
+        /// <summary>Right-click on a bubble - the host decides what menu that means.</summary>
+        public event EventHandler<PlotPoint> PointMenuRequested;
+
         /// <summary>A mark was dragged along an editable axis and dropped.</summary>
         public event EventHandler<ValueEditEventArgs> ValueEdited;
 
@@ -464,6 +467,27 @@ namespace PlayniteCharts.Controls
             {
                 PointActivated?.Invoke(this, hit);
             }
+        }
+
+        protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)
+        {
+            base.OnMouseRightButtonUp(e);
+            var hit = HitTest(e.GetPosition(this));
+            if (hit == null)
+            {
+                return;
+            }
+
+            // the menu is about to cover the plot, so make it obvious which game it
+            // belongs to: leave that bubble hovered while it is open
+            if (!ReferenceEquals(hovered, hit))
+            {
+                hovered = hit;
+                RedrawOverlay();
+            }
+
+            e.Handled = true;
+            PointMenuRequested?.Invoke(this, hit);
         }
 
         // --------------------------------------------------------------- dragging

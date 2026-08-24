@@ -16,6 +16,7 @@ namespace PlayniteCharts.Views
         {
             InitializeComponent();
             Plot.PointActivated += OnPointActivated;
+            Plot.PointMenuRequested += OnPointMenuRequested;
             Plot.ValueEdited += OnValueEdited;
             DataContextChanged += OnDataContextChanged;
         }
@@ -83,6 +84,13 @@ namespace PlayniteCharts.Views
         private void OnPointActivated(object sender, PlotPoint point)
         {
             model?.ActivatePoint(point);
+        }
+
+        private void OnPointMenuRequested(object sender, PlotPoint point)
+        {
+            // Playnite's own games-list menu, borrowed rather than reimplemented -
+            // see DesktopGameMenu. Silently does nothing outside the desktop app.
+            Interop.DesktopGameMenu.Show(Plot, point?.Game);
         }
 
         private void OnValueEdited(object sender, ValueEditEventArgs e)
