@@ -302,10 +302,21 @@ namespace PlayniteCharts.Model
                 return ticks;
             }
 
-            var raw = span / Math.Max(2, target);
-            var mag = Math.Pow(10, Math.Floor(Math.Log10(raw)));
-            var norm = raw / mag;
-            var step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+            double step;
+            if (field.PreferredTickStep > 0 && span / field.PreferredTickStep <= 24)
+            {
+                // the column knows its own units; only fall back to a computed step
+                // if honouring it would crowd the axis with labels
+                step = field.PreferredTickStep;
+            }
+            else
+            {
+                var raw = span / Math.Max(2, target);
+                var mag = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+                var norm = raw / mag;
+                step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+            }
+
             var start = Math.Ceiling(min / step) * step;
             for (var v = start; v <= max + step * 1e-6; v += step)
             {

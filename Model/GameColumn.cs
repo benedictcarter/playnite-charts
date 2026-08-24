@@ -60,6 +60,11 @@ namespace PlayniteCharts.Model
         /// actually hold (user score is a whole number from 0 to 100).</summary>
         public Func<double, double> Quantize { get; set; }
 
+        /// <summary>Grid step this column would rather have than a computed "nice"
+        /// one. 0 lets the axis choose. A 0-100 score reads in tens, and the
+        /// automatic pick lands on 20 as soon as the axis is short.</summary>
+        public double PreferredTickStep { get; set; }
+
         public bool IsEditable => SetNumber != null;
 
         /// <summary>The value a drag to this position would actually store.</summary>
@@ -196,11 +201,18 @@ namespace PlayniteCharts.Model
             };
         }
 
-        /// <summary>A 0-100 score the user owns, so its axis can be dragged.</summary>
+        /// <summary>A 0-100 rating, gridded in tens. Given a setter it also becomes
+        /// a score the user owns, so its axis can be dragged.</summary>
         private static GameColumn Score(string id, string name, Func<Game, double?> get,
-            Action<Game, int> set)
+            Action<Game, int> set = null)
         {
             var f = Num(id, name, get);
+            f.PreferredTickStep = 10;
+            if (set == null)
+            {
+                return f;
+            }
+
             f.Quantize = v => Math.Max(0, Math.Min(100, Math.Round(v)));
             f.SetNumber = (g, v) => set(g, (int)Math.Max(0, Math.Min(100, Math.Round(v))));
             return f;
@@ -302,8 +314,8 @@ namespace PlayniteCharts.Model
                 Num("playcount", "Play count", g => g.PlayCount > 0 ? g.PlayCount : (double?)null, v => v.ToString("N0")),
                 Num("installsize", "Install size (GB)", g => g.InstallSize.HasValue && g.InstallSize.Value > 0 ? g.InstallSize.Value / 1073741824.0 : (double?)null, v => v.ToString("0.##") + " GB"),
                 Score("userscore", "User score", g => g.UserScore, (g, v) => g.UserScore = v),
-                Num("criticscore", "Critic score", g => g.CriticScore),
-                Num("communityscore", "Community score", g => g.CommunityScore),
+                Score("criticscore", "Critic score", g => g.CriticScore),
+                Score("communityscore", "Community score", g => g.CommunityScore),
                 Num("releaseyear", "Release year", g => g.ReleaseYear, v => ((int)v).ToString()),
 
                 Dt("releasedate", "Release date", g => g.ReleaseDate.HasValue ? g.ReleaseDate.Value.Date : (DateTime?)null),
