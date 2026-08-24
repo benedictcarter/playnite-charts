@@ -28,6 +28,13 @@ Right-click a bubble and you get Playnite's own game menu, other extensions incl
 
 ![Playnite's game menu on a bubble](pics/game-menu.png)
 
+Same library, three more pairings — playtime against user score coloured by when it
+was last played, and the two score columns against your own:
+
+![Playtime against user score](pics/playtime-vs-user-score.png)
+![Critic score against user score](pics/critic-vs-user-score.png)
+![Community score against user score](pics/community-vs-user-score.png)
+
 ## Install
 
 From Playnite: **Add-ons → Browse → Generic**, search for *Charts*.
