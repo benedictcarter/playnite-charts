@@ -1,0 +1,14 @@
+AddonId: PlayniteCharts_8a4f2c10-5c1e-4b2a-9d3f-6e7b0a1c4d55
+Packages:
+  - Version: 1.0.0
+    RequiredApiVersion: 6.16.0
+    ReleaseDate: 2026-08-24
+    PackageUrl: https://github.com/benedictcarter/playnite-charts/releases/download/v1.0.0/PlayniteCharts_8a4f2c10-5c1e-4b2a-9d3f-6e7b0a1c4d55_1_0_0.pext
+    Changelog:
+      - First release.
+      - Configurable bubble plots over your library - X, Y, bubble size, colour, shape and the hover card each take any column of the game table.
+      - Save, rename, duplicate and reorder as many plots as you like.
+      - Filters (range sliders for numbers and dates, tick lists for categories) shared by every plot, so you filter once and flick between views.
+      - Colour-vision-safe categorical palette, pickable ramps for numeric colour columns, and a legend on every plot.
+      - Right-click a bubble for Playnite's own game menu; double-click to open the game.
+      - Drag a bubble along a user-score axis to write that score back to the library.

@@ -19,7 +19,11 @@ so you can filter once and then flick between views to explore.
 
 ## Install
 
-Copy `PlayniteCharts.dll`, `extension.yaml` and `icon.png` into
+From Playnite: **Add-ons → Browse → Generic**, search for *Charts*.
+
+Or by hand: download the `.pext` from
+[Releases](https://github.com/benedictcarter/playnite-charts/releases) and open it
+with Playnite, or copy `PlayniteCharts.dll`, `extension.yaml` and `icon.png` into
 `%AppData%\Playnite\Extensions\PlayniteCharts` and restart Playnite.
 
 ## Build
