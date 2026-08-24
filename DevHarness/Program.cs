@@ -96,7 +96,32 @@ namespace PlayniteCharts.DevHarness
                 Console.WriteLine(hoverFile);
             }
 
+            SmokeTestView();
             return 0;
+        }
+
+        /// <summary>
+        /// Parses ChartsView.xaml for real. A XAML error only shows up at load time,
+        /// and in Playnite that means a silent extension-load failure in the log.
+        /// </summary>
+        private static void SmokeTestView()
+        {
+            if (Application.Current == null)
+            {
+                new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            }
+
+            try
+            {
+                var view = new Views.ChartsView();
+                view.Measure(new Size(Width, Height));
+                view.Arrange(new Rect(0, 0, Width, Height));
+                Console.WriteLine("ChartsView.xaml loaded OK");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("ChartsView.xaml FAILED: " + e);
+            }
         }
 
         private static void Render(PlotModel model, Color surface, string file, bool withHover)
