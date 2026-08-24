@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Text.RegularExpressions;
 using Playnite.SDK.Models;
 
 namespace PlayniteCharts.Model
@@ -35,6 +37,10 @@ namespace PlayniteCharts.Model
 
         /// <summary>Axis tick / tooltip formatting for numeric values.</summary>
         public Func<double, string> FormatNumber { get; set; }
+
+        /// <summary>Free text (notes, install path, ...): fine in a tooltip, useless as a
+        /// colour or shape channel, so it is offered for hover only.</summary>
+        public bool HoverOnly { get; set; }
 
         public bool IsContinuous => Kind == FieldKind.Numeric || Kind == FieldKind.Date;
         public bool IsDiscrete => Kind == FieldKind.Categorical;
@@ -92,7 +98,7 @@ namespace PlayniteCharts.Model
 
         public static List<GameColumn> Continuous => All.Where(f => f.IsContinuous).ToList();
 
-        public static List<GameColumn> Discrete => All.Where(f => f.IsDiscrete).ToList();
+        public static List<GameColumn> Discrete => All.Where(f => f.IsDiscrete && !f.HoverOnly).ToList();
 
         private static string First<T>(IEnumerable<T> items) where T : DatabaseObject
         {
@@ -104,6 +110,17 @@ namespace PlayniteCharts.Model
             var first = items.Where(i => !string.IsNullOrEmpty(i.Name))
                 .OrderBy(i => i.Name, StringComparer.CurrentCultureIgnoreCase).FirstOrDefault();
             return first?.Name;
+        }
+
+        private static string JoinNames(IEnumerable<string> names)
+        {
+            if (names == null)
+            {
+                return null;
+            }
+
+            var list = names.Where(n => !string.IsNullOrEmpty(n)).ToList();
+            return list.Count == 0 ? null : string.Join(", ", list);
         }
 
         private static string Join<T>(IEnumerable<T> items) where T : DatabaseObject
@@ -153,6 +170,45 @@ namespace PlayniteCharts.Model
             };
         }
 
+        /// <summary>Free text, hover only. Empty stays empty so the tooltip can skip it.</summary>
+        private static GameColumn Text(string id, string name, Func<Game, string> get, int max = 300)
+        {
+            return new GameColumn
+            {
+                Id = id,
+                Name = name,
+                Group = "Text",
+                Kind = FieldKind.Categorical,
+                HoverOnly = true,
+                GetCategory = g => get(g) ?? "(none)",
+                GetDisplay = g => Shorten(Strip(get(g)), max)
+            };
+        }
+
+        /// <summary>Playnite descriptions are HTML; a tooltip wants one plain line.</summary>
+        private static string Strip(string html)
+        {
+            if (string.IsNullOrEmpty(html))
+            {
+                return null;
+            }
+
+            var text = Regex.Replace(html, "<[^>]+>", " ");
+            text = WebUtility.HtmlDecode(text);
+            text = Regex.Replace(text, @"\s+", " ").Trim();
+            return text.Length == 0 ? null : text;
+        }
+
+        private static string Shorten(string text, int max)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length <= max)
+            {
+                return text;
+            }
+
+            return text.Substring(0, max - 1).TrimEnd() + "\u2026";
+        }
+
         private static GameColumn Cat(string id, string name, Func<Game, string> get,
             Func<Game, string> display = null, string group = "Categories")
         {
@@ -188,22 +244,36 @@ namespace PlayniteCharts.Model
 
                 // ---- discrete: usable for colour, shape and hover ----
                 Cat("name", "Name", g => g.Name, group: "Text"),
-                Cat("source", "Store / source", g => g.Source != null ? g.Source.Name : "(no source)"),
-                Cat("completion", "Completion status", g => g.CompletionStatus != null ? g.CompletionStatus.Name : "(not set)"),
-                Cat("platform", "Platform", g => First(g.Platforms) ?? "(none)", g => Join(g.Platforms) ?? "(none)"),
-                Cat("genre", "Genre", g => First(g.Genres) ?? "(none)", g => Join(g.Genres) ?? "(none)"),
-                Cat("category", "Category", g => First(g.Categories) ?? "(none)", g => Join(g.Categories) ?? "(none)"),
-                Cat("series", "Series", g => First(g.Series) ?? "(none)", g => Join(g.Series) ?? "(none)"),
-                Cat("developer", "Developer", g => First(g.Developers) ?? "(none)", g => Join(g.Developers) ?? "(none)"),
-                Cat("publisher", "Publisher", g => First(g.Publishers) ?? "(none)", g => Join(g.Publishers) ?? "(none)"),
-                Cat("agerating", "Age rating", g => First(g.AgeRatings) ?? "(none)", g => Join(g.AgeRatings) ?? "(none)"),
-                Cat("region", "Region", g => First(g.Regions) ?? "(none)", g => Join(g.Regions) ?? "(none)"),
-                Cat("feature", "Feature", g => First(g.Features) ?? "(none)", g => Join(g.Features) ?? "(none)"),
-                Cat("tag", "Tag", g => First(g.Tags) ?? "(none)", g => Join(g.Tags) ?? "(none)"),
+                Cat("source", "Store / source", g => g.Source != null ? g.Source.Name : "(no source)",
+                    g => g.Source != null ? g.Source.Name : null),
+                Cat("completion", "Completion status", g => g.CompletionStatus != null ? g.CompletionStatus.Name : "(not set)",
+                    g => g.CompletionStatus != null ? g.CompletionStatus.Name : null),
+                Cat("platform", "Platform", g => First(g.Platforms) ?? "(none)", g => Join(g.Platforms)),
+                Cat("genre", "Genre", g => First(g.Genres) ?? "(none)", g => Join(g.Genres)),
+                Cat("category", "Category", g => First(g.Categories) ?? "(none)", g => Join(g.Categories)),
+                Cat("series", "Series", g => First(g.Series) ?? "(none)", g => Join(g.Series)),
+                Cat("developer", "Developer", g => First(g.Developers) ?? "(none)", g => Join(g.Developers)),
+                Cat("publisher", "Publisher", g => First(g.Publishers) ?? "(none)", g => Join(g.Publishers)),
+                Cat("agerating", "Age rating", g => First(g.AgeRatings) ?? "(none)", g => Join(g.AgeRatings)),
+                Cat("region", "Region", g => First(g.Regions) ?? "(none)", g => Join(g.Regions)),
+                Cat("feature", "Feature", g => First(g.Features) ?? "(none)", g => Join(g.Features)),
+                Cat("tag", "Tag", g => First(g.Tags) ?? "(none)", g => Join(g.Tags)),
                 Cat("installed", "Installed", g => g.IsInstalled ? "Installed" : "Not installed", group: "Flags"),
-                Cat("favorite", "Favorite", g => g.Favorite ? "Favorite" : "Not favorite", group: "Flags"),
-                Cat("hidden", "Hidden", g => g.Hidden ? "Hidden" : "Visible", group: "Flags"),
-                Cat("installdrive", "Install drive", g => g.GetInstallDrive() ?? "(not installed)", group: "Flags")
+                Cat("favorite", "Favorite", g => g.Favorite ? "Favorite" : "Not favorite",
+                    g => g.Favorite ? "Yes" : null, group: "Flags"),
+                Cat("hidden", "Hidden", g => g.Hidden ? "Hidden" : "Visible",
+                    g => g.Hidden ? "Yes" : null, group: "Flags"),
+                Cat("installdrive", "Install drive", g => g.GetInstallDrive() ?? "(not installed)",
+                    g => g.GetInstallDrive(), group: "Flags"),
+
+                // ---- free text: hover only ----
+                Text("sortingname", "Sorting name", g => g.SortingName),
+                Text("version", "Version", g => g.Version),
+                Text("notes", "Notes", g => g.Notes, 400),
+                Text("description", "Description", g => g.Description, 400),
+                Text("installdir", "Install directory", g => g.InstallDirectory),
+                Text("links", "Links", g => JoinNames(g.Links?.Select(l => l.Name))),
+                Text("roms", "ROMs", g => JoinNames(g.Roms?.Select(r => r.Name)))
             };
         }
     }

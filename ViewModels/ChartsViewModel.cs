@@ -60,6 +60,8 @@ namespace PlayniteCharts.ViewModels
         public RelayCommand<object> DuplicatePlotCommand { get; }
         public RelayCommand<object> DeletePlotCommand { get; }
         public RelayCommand<object> RefreshCommand { get; }
+        public RelayCommand<object> AllHoverCommand { get; }
+        public RelayCommand<object> NoHoverCommand { get; }
 
         public ChartsViewModel(ChartsPlugin plugin, IPlayniteAPI api)
         {
@@ -94,6 +96,8 @@ namespace PlayniteCharts.ViewModels
                 _ => SelectedPlot != null);
             DeletePlotCommand = new RelayCommand<object>(_ => DeleteSelected(), _ => SelectedPlot != null && Plots.Count > 1);
             RefreshCommand = new RelayCommand<object>(_ => Refresh());
+            AllHoverCommand = new RelayCommand<object>(_ => SetAllHover(true), _ => SelectedPlot != null);
+            NoHoverCommand = new RelayCommand<object>(_ => SetAllHover(false), _ => SelectedPlot != null);
 
             foreach (var o in HoverOptions)
             {
@@ -330,6 +334,25 @@ namespace PlayniteCharts.ViewModels
             }
 
             Persist();
+        }
+
+        /// <summary>Ticking 25 boxes one at a time (and rebuilding each time) is nobody's idea of fun.</summary>
+        private void SetAllHover(bool on)
+        {
+            if (selectedPlot == null)
+            {
+                return;
+            }
+
+            suspendRebuild = true;
+            foreach (var o in HoverOptions)
+            {
+                o.IsChecked = on;
+            }
+
+            suspendRebuild = false;
+            selectedPlot.HoverFieldIds = HoverOptions.Where(o => o.IsChecked).Select(o => o.Field.Id).ToList();
+            Rebuild();
         }
 
         private void OnHoverOptionChanged(object sender, PropertyChangedEventArgs e)

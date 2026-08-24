@@ -58,7 +58,7 @@ namespace PlayniteCharts.DevHarness
                     Name = "release date vs user score",
                     XFieldId = "releasedate", YFieldId = "userscore",
                     SizeFieldId = "criticscore", ColorFieldId = "completion", ShapeFieldId = "source",
-                    HoverFieldIds = new List<string> { "name", "genre" }
+                    HoverFieldIds = GameColumns.All.Select(f => f.Id).ToList()
                 },
                 new PlotConfig
                 {
@@ -96,7 +96,7 @@ namespace PlayniteCharts.DevHarness
                 Console.WriteLine(hoverFile);
             }
 
-            SmokeTestView();
+            SmokeTestView(Path.Combine(outDir, "chartsview.png"));
             return 0;
         }
 
@@ -104,19 +104,43 @@ namespace PlayniteCharts.DevHarness
         /// Parses ChartsView.xaml for real. A XAML error only shows up at load time,
         /// and in Playnite that means a silent extension-load failure in the log.
         /// </summary>
-        private static void SmokeTestView()
+        private static void SmokeTestView(string file)
         {
             if (Application.Current == null)
             {
                 new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             }
 
+            // stand-ins for the Playnite theme keys the view asks for by DynamicResource;
+            // if a key is misspelled the text falls back to black and the PNG shows it
+            var res = Application.Current.Resources;
+            res["TextBrush"] = new SolidColorBrush(Color.FromRgb(0xF2, 0xF2, 0xF2));
+            res["TextBrushDarker"] = new SolidColorBrush(Color.FromRgb(0xA3, 0xA3, 0xA3));
+            res["NormalBorderBrush"] = new SolidColorBrush(Color.FromRgb(0x40, 0x48, 0x60));
+
             try
             {
-                var view = new Views.ChartsView();
-                view.Measure(new Size(Width, Height));
-                view.Arrange(new Rect(0, 0, Width, Height));
-                Console.WriteLine("ChartsView.xaml loaded OK");
+                var host = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(0x15, 0x1D, 0x38)),
+                    Child = new Views.ChartsView(),
+                    Width = Width,
+                    Height = Height
+                };
+                host.Measure(new Size(Width, Height));
+                host.Arrange(new Rect(0, 0, Width, Height));
+                host.UpdateLayout();
+
+                var bmp = new RenderTargetBitmap(Width, Height, 96, 96, PixelFormats.Pbgra32);
+                bmp.Render(host);
+                var png = new PngBitmapEncoder();
+                png.Frames.Add(BitmapFrame.Create(bmp));
+                using (var fs = File.Create(file))
+                {
+                    png.Save(fs);
+                }
+
+                Console.WriteLine("ChartsView.xaml loaded OK -> " + file);
             }
             catch (Exception e)
             {

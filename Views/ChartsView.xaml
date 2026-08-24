@@ -5,18 +5,22 @@
              mc:Ignorable="d"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             Foreground="{DynamicResource TextBrush}"
+             TextElement.Foreground="{DynamicResource TextBrush}"
              d:DesignHeight="600" d:DesignWidth="1000">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrushDarker}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Opacity" Value="0.75" />
             <Setter Property="Margin" Value="0,10,0,3" />
         </Style>
 
         <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,7,0,2" />
             <Setter Property="Opacity" Value="0.8" />
         </Style>
@@ -87,15 +91,26 @@
                               ItemsSource="{Binding DataContext.ShapeFields,
                                   RelativeSource={RelativeSource AncestorType=UserControl}}" />
 
-                    <TextBlock Text="HOVER" Style="{StaticResource SectionHeader}" />
+                    <DockPanel LastChildFill="False">
+                        <TextBlock DockPanel.Dock="Left" Text="HOVER" Style="{StaticResource SectionHeader}" />
+                        <Button DockPanel.Dock="Right" Content="None" Padding="6,0" Margin="3,8,0,2" FontSize="10"
+                                ToolTip="Hover shows nothing but the name"
+                                Command="{Binding DataContext.NoHoverCommand,
+                                    RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        <Button DockPanel.Dock="Right" Content="All" Padding="6,0" Margin="3,8,0,2" FontSize="10"
+                                ToolTip="Hover shows every column the game has a value for"
+                                Command="{Binding DataContext.AllHoverCommand,
+                                    RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    </DockPanel>
                     <Border BorderThickness="1" BorderBrush="{DynamicResource NormalBorderBrush}" Padding="4"
-                            MaxHeight="180">
+                            MaxHeight="240">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding DataContext.HoverOptions,
                                               RelativeSource={RelativeSource AncestorType=UserControl}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" Margin="2" />
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}" Margin="2"
+                                                  Foreground="{DynamicResource TextBrush}" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -103,17 +118,22 @@
                     </Border>
 
                     <TextBlock Text="APPEARANCE" Style="{StaticResource SectionHeader}" />
-                    <CheckBox Content="Show legend" IsChecked="{Binding ShowLegend}" Margin="0,3" />
+                    <CheckBox Content="Show legend" IsChecked="{Binding ShowLegend}" Margin="0,3"
+                              Foreground="{DynamicResource TextBrush}" />
 
                     <DockPanel Margin="0,6,0,0">
-                        <TextBlock DockPanel.Dock="Left" Text="Smallest" Width="70" VerticalAlignment="Center" Opacity="0.8" />
+                        <TextBlock DockPanel.Dock="Left" Text="Smallest" Width="70" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrush}" Opacity="0.8" />
                         <TextBlock DockPanel.Dock="Right" Width="28" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrush}"
                                    Text="{Binding MinBubbleSize, StringFormat={}{0:0}}" />
                         <Slider Minimum="3" Maximum="16" Value="{Binding MinBubbleSize}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Margin="0,4,0,10">
-                        <TextBlock DockPanel.Dock="Left" Text="Largest" Width="70" VerticalAlignment="Center" Opacity="0.8" />
+                        <TextBlock DockPanel.Dock="Left" Text="Largest" Width="70" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrush}" Opacity="0.8" />
                         <TextBlock DockPanel.Dock="Right" Width="28" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrush}"
                                    Text="{Binding MaxBubbleSize, StringFormat={}{0:0}}" />
                         <Slider Minimum="6" Maximum="48" Value="{Binding MaxBubbleSize}" VerticalAlignment="Center" />
                     </DockPanel>
@@ -131,13 +151,16 @@
             </Grid.RowDefinitions>
 
             <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,6">
-                <TextBlock DockPanel.Dock="Left" Text="{Binding SourceSummary}" VerticalAlignment="Center" Opacity="0.75" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding SourceSummary}" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextBrush}" Opacity="0.75" />
                 <Button DockPanel.Dock="Right" Content="Refresh" Padding="10,3" Margin="6,0,0,0"
                         Command="{Binding RefreshCommand}" />
                 <CheckBox DockPanel.Dock="Right" Content="Table" VerticalAlignment="Center" Margin="12,0,0,0"
+                          Foreground="{DynamicResource TextBrush}"
                           ToolTip="Show the plotted rows as text instead of marks"
                           IsChecked="{Binding ShowTable}" />
                 <CheckBox DockPanel.Dock="Right" Content="Use library filter" VerticalAlignment="Center"
+                          Foreground="{DynamicResource TextBrush}"
                           ToolTip="Plot only the games the library view's filter currently shows"
                           IsChecked="{Binding UseLibraryFilter}" />
             </DockPanel>

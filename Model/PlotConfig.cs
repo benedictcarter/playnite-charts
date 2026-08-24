@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Playnite.SDK;
 
 namespace PlayniteCharts.Model
@@ -16,7 +17,7 @@ namespace PlayniteCharts.Model
         private string sizeFieldId = "criticscore";
         private string colorFieldId = "completion";
         private string shapeFieldId = "source";
-        private List<string> hoverFieldIds = new List<string> { "name" };
+        private List<string> hoverFieldIds = GameColumns.All.Select(f => f.Id).ToList();
         private bool showLegend = true;
         private double minBubbleSize = 3;
         private double maxBubbleSize = 12;

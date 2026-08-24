@@ -469,8 +469,18 @@ namespace PlayniteCharts.Controls
             AddChannel(m.ShapeScale?.Field, p.ShapeKey);
 
             var title = Text(p.Game.Name ?? "(no name)", t.InkBrush, 12, FontWeights.SemiBold);
+
+            // "hover everything" can be 25 rows; never let the card run off the control
+            var maxLines = Math.Max(1, (int)((ActualHeight - 40 - title.Height) / 15));
+            var truncated = lines.Count > maxLines;
+            if (truncated)
+            {
+                lines = lines.Take(maxLines - 1).ToList();
+                lines.Add(Tuple.Create(string.Empty, "\u2026"));
+            }
+
             var keys = lines.Select(l => Text(l.Item1, t.InkMutedBrush, 11)).ToList();
-            var vals = lines.Select(l => Ellipsize(l.Item2, t.InkBrush, 11, 240)).ToList();
+            var vals = lines.Select(l => Ellipsize(l.Item2, t.InkBrush, 11, 320)).ToList();
 
             var keyW = keys.Count > 0 ? keys.Max(k => k.Width) : 0;
             var valW = vals.Count > 0 ? vals.Max(v => v.Width) : 0;
