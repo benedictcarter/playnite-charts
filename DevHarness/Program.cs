@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Playnite.SDK;
 using Playnite.SDK.Models;
 using PlayniteCharts.Controls;
 using PlayniteCharts.Model;
@@ -276,47 +277,69 @@ namespace PlayniteCharts.DevHarness
         private static readonly string[] Statuses = { "Not played", "Playing", "Beaten", "Completed", "Abandoned", "On hold", "Plan to play" };
         private static readonly string[] GenreNames = { "Action", "RPG", "Strategy", "Puzzle", "Racing", "Shooter", "Simulation", "Platformer", "Horror", "Sports" };
 
+        // A fixed day, not DateTime.Today. The seeded Random is what makes two runs
+        // comparable, and "Date added" is a plottable column, so a moving today
+        // would quietly shift that axis from one day to the next.
+        private static readonly DateTime SeedDay = new DateTime(2026, 8, 24);
+
+        private const int GameCount = 720;
+        private const int FirstYear = 1998;
+        private const int YearSpan = 28;
+
         private static List<Game> SeedLibrary(FakeDatabase db)
         {
             var rnd = new Random(20260824);
 
-            var sources = Stores.Select(n => new GameSource(n)).ToList();
-            sources.ForEach(db.Sources.Add);
-            var statuses = Statuses.Select(n => new CompletionStatus(n)).ToList();
-            statuses.ForEach(db.CompletionStatuses.Add);
-            var genres = GenreNames.Select(n => new Genre(n)).ToList();
-            genres.ForEach(db.Genres.Add);
+            var sources = Fill(db.Sources, Stores, n => new GameSource(n));
+            var statuses = Fill(db.CompletionStatuses, Statuses, n => new CompletionStatus(n));
+            var genres = Fill(db.Genres, GenreNames, n => new Genre(n));
 
             var games = new List<Game>();
-            for (var i = 0; i < 720; i++)
+            for (var i = 0; i < GameCount; i++)
             {
-                var year = 1998 + rnd.Next(0, 28);
-                var g = new Game($"Test Game {i + 1:000}")
+                var year = FirstYear + rnd.Next(0, YearSpan);
+                var game = new Game($"Test Game {i + 1:000}")
                 {
-                    ReleaseDate = new ReleaseDate(year, rnd.Next(1, 13), rnd.Next(1, 28)),
+                    // 28 days in every month: the day is noise here, and every
+                    // month has a 28th, so no month needs a special case
+                    ReleaseDate = new ReleaseDate(year, rnd.Next(1, 13), rnd.Next(1, 29)),
                     Playtime = (ulong)(Math.Pow(rnd.NextDouble(), 3) * 400 * 3600),
-                    Added = DateTime.Today.AddDays(-rnd.Next(0, 1400)),
+                    Added = SeedDay.AddDays(-rnd.Next(0, 1400)),
                     SourceId = sources[Weighted(rnd, sources.Count)].Id,
                     CompletionStatusId = statuses[Weighted(rnd, statuses.Count)].Id,
                     GenreIds = new List<Guid> { genres[rnd.Next(genres.Count)].Id }
                 };
 
-                // scores correlate a little with the year so the cloud is not a blob
+                // scores correlate a little with the year so the cloud is not a
+                // blob, and the two drift apart so they are not the same column
                 if (rnd.NextDouble() > 0.18)
                 {
-                    g.UserScore = Clamp(40 + (year - 1998) * 1.1 + rnd.Next(-28, 29));
+                    game.UserScore = Clamp(40 + (year - FirstYear) * 1.1 + rnd.Next(-28, 29));
                 }
 
                 if (rnd.NextDouble() > 0.25)
                 {
-                    g.CriticScore = Clamp(50 + (year - 1998) * 0.9 + rnd.Next(-25, 26));
+                    game.CriticScore = Clamp(50 + (year - FirstYear) * 0.9 + rnd.Next(-25, 26));
                 }
 
-                games.Add(g);
-                db.Games.Add(g);
+                games.Add(game);
+                db.Games.Add(game);
             }
 
             return games;
+        }
+
+        /// <summary>Builds one item per name, adds them all, and hands them back.</summary>
+        private static List<T> Fill<T>(IItemCollection<T> into, string[] names, Func<string, T> make)
+            where T : DatabaseObject
+        {
+            var items = names.Select(make).ToList();
+            foreach (var item in items)
+            {
+                into.Add(item);
+            }
+
+            return items;
         }
 
         /// <summary>Skews towards the first entries, like a real store/status spread.</summary>
