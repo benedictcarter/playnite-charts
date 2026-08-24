@@ -28,12 +28,6 @@ namespace PlayniteCharts.ViewModels
         }
     }
 
-    public class TableRow
-    {
-        public Game Game { get; set; }
-        public List<string> Values { get; set; } = new List<string>();
-    }
-
     public class ChartsViewModel : ObservableObject
     {
         private static readonly ILogger logger = LogManager.GetLogger();
@@ -43,8 +37,6 @@ namespace PlayniteCharts.ViewModels
         private bool suspendRebuild;
         private PlotConfig selectedPlot;
         private PlotModel model;
-        private bool showTable;
-        private bool tableDirty = true;
         private IList<Game> domainSource = new List<Game>();
         private readonly DispatcherTimer filterDebounce;
 
@@ -70,13 +62,9 @@ namespace PlayniteCharts.ViewModels
         /// <summary>Columns worth filtering on: free text and the game name are not.</summary>
         public List<GameColumn> FilterFields { get; }
 
-        public List<string> TableColumns { get; private set; } = new List<string>();
-        public List<TableRow> TableRows { get; private set; } = new List<TableRow>();
-
         public RelayCommand<object> NewPlotCommand { get; }
         public RelayCommand<object> DuplicatePlotCommand { get; }
         public RelayCommand<object> DeletePlotCommand { get; }
-        public RelayCommand<object> RefreshCommand { get; }
         public RelayCommand<object> AllHoverCommand { get; }
         public RelayCommand<object> NoHoverCommand { get; }
         public RelayCommand<object> AddFilterCommand { get; }
@@ -130,7 +118,6 @@ namespace PlayniteCharts.ViewModels
                 o => Duplicate(o as PlotConfig ?? selectedPlot),
                 o => (o as PlotConfig ?? selectedPlot) != null);
             DeletePlotCommand = new RelayCommand<object>(o => Delete(o as PlotConfig ?? selectedPlot));
-            RefreshCommand = new RelayCommand<object>(_ => Refresh());
             AllHoverCommand = new RelayCommand<object>(_ => SetAllHover(true));
             NoHoverCommand = new RelayCommand<object>(_ => SetAllHover(false));
             AddFilterCommand = new RelayCommand<object>(o => AddFilter(o as GameColumn));
@@ -174,27 +161,6 @@ namespace PlayniteCharts.ViewModels
             get => model;
             private set => SetValue(ref model, value);
         }
-
-        public bool ShowTable
-        {
-            get => showTable;
-            set
-            {
-                if (showTable == value)
-                {
-                    return;
-                }
-
-                SetValue(ref showTable, value);
-                OnPropertyChanged(nameof(ShowPlot));
-                if (showTable && tableDirty)
-                {
-                    BuildTable();
-                }
-            }
-        }
-
-        public bool ShowPlot => !showTable;
 
         public bool UseLibraryFilter
         {
@@ -279,67 +245,14 @@ namespace PlayniteCharts.ViewModels
                 Model = PlotModel.Build(selectedPlot, View, games, domainSource,
                     PlotTheme.SeriesCapacity, MarkShapes.Count);
 
-                // one row per game x one string per column, and some of those
-                // columns strip HTML - far too expensive to do for a hidden table
-                tableDirty = true;
-                if (showTable)
-                {
-                    BuildTable();
-                }
-
                 logger.Debug($"Charts: rebuilt '{selectedPlot.Name}' in {sw.ElapsedMilliseconds} ms " +
-                    $"({Model.Points?.Count ?? 0} points, table {(showTable ? "built" : "deferred")}).");
+                    $"({Model.Points?.Count ?? 0} points).");
             }
             catch (Exception e)
             {
                 logger.Error(e, "Failed to build plot model.");
                 Model = new PlotModel { Config = selectedPlot, Problem = "Could not build this plot: " + e.Message };
             }
-        }
-
-        /// <summary>
-        /// The table view is the documented relief for the palette slots that sit
-        /// below 3:1 contrast - the same rows, as text, with no colour encoding.
-        /// </summary>
-        private void BuildTable()
-        {
-            tableDirty = false;
-            var m = Model;
-            if (m?.Points == null || m.Problem != null)
-            {
-                TableColumns = new List<string>();
-                TableRows = new List<TableRow>();
-            }
-            else
-            {
-                var fields = new List<GameColumn> { GameColumns.Get("name") };
-                void Add(GameColumn f)
-                {
-                    if (f != null && !fields.Contains(f))
-                    {
-                        fields.Add(f);
-                    }
-                }
-
-                Add(m.XField);
-                Add(m.YField);
-                Add(m.SizeField);
-                Add(m.ColorScale?.Field ?? m.ColorGradient?.Field);
-                Add(m.ShapeScale?.Field);
-                m.HoverFields.ForEach(Add);
-
-                TableColumns = fields.Select(f => f.Name).ToList();
-                TableRows = m.Points
-                    .OrderBy(p => p.Game.Name, StringComparer.CurrentCultureIgnoreCase)
-                    .Select(p => new TableRow
-                    {
-                        Game = p.Game,
-                        Values = fields.Select(f => f.Display(p.Game) ?? string.Empty).ToList()
-                    }).ToList();
-            }
-
-            OnPropertyChanged(nameof(TableColumns));
-            OnPropertyChanged(nameof(TableRows));
         }
 
         // ---------------------------------------------------------------- filters

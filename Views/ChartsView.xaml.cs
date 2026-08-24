@@ -1,9 +1,10 @@
-using System.ComponentModel;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using PlayniteCharts.Controls;
 using PlayniteCharts.Model;
 using PlayniteCharts.ViewModels;
@@ -12,8 +13,12 @@ namespace PlayniteCharts.Views
 {
     public partial class ChartsView : UserControl
     {
+        private const string PlotDragFormat = "PlayniteCharts.PlotConfig";
+
         private ChartsViewModel model;
         private bool inkedMenu;
+        private Point dragStart;
+        private PlotConfig dragCandidate;
 
         public ChartsView()
         {
@@ -26,25 +31,7 @@ namespace PlayniteCharts.Views
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if (model != null)
-            {
-                model.PropertyChanged -= OnModelPropertyChanged;
-            }
-
             model = DataContext as ChartsViewModel;
-            if (model != null)
-            {
-                model.PropertyChanged += OnModelPropertyChanged;
-                RebuildTableColumns();
-            }
-        }
-
-        private void OnModelPropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(ChartsViewModel.TableColumns))
-            {
-                RebuildTableColumns();
-            }
         }
 
         private void OnAddFilterClick(object sender, RoutedEventArgs e)
@@ -78,6 +65,104 @@ namespace PlayniteCharts.Views
             menu.IsOpen = true;
         }
 
+        // ------------------------------------------------------- reordering plots
+
+        private void OnPlotListMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            dragStart = e.GetPosition(null);
+            dragCandidate = ItemUnder(e.OriginalSource as DependencyObject);
+        }
+
+        private void OnPlotListMouseMove(object sender, MouseEventArgs e)
+        {
+            if (dragCandidate == null || e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            // a click that wanders a pixel is still a click, so wait for the
+            // system's own drag threshold before taking the mouse hostage
+            var moved = e.GetPosition(null) - dragStart;
+            if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+            {
+                return;
+            }
+
+            var dragged = dragCandidate;
+            dragCandidate = null;
+            DragDrop.DoDragDrop(PlotList, new DataObject(PlotDragFormat, dragged), DragDropEffects.Move);
+        }
+
+        private void OnPlotListDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(PlotDragFormat) ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void OnPlotListDrop(object sender, DragEventArgs e)
+        {
+            e.Handled = true;
+            if (model == null || !(e.Data.GetData(PlotDragFormat) is PlotConfig dragged))
+            {
+                return;
+            }
+
+            var from = model.Plots.IndexOf(dragged);
+            if (from < 0)
+            {
+                return;
+            }
+
+            // dropped on a row: land before or after it depending on which half was
+            // hit, so the last position is reachable. Dropped past the last row: end.
+            var target = ItemUnder(e.OriginalSource as DependencyObject);
+            int to;
+            if (target == null)
+            {
+                to = model.Plots.Count - 1;
+            }
+            else
+            {
+                to = model.Plots.IndexOf(target);
+                if (to < 0)
+                {
+                    return;
+                }
+
+                var container = (ListBoxItem)PlotList.ItemContainerGenerator.ContainerFromItem(target);
+                if (container != null && e.GetPosition(container).Y > container.ActualHeight / 2)
+                {
+                    to++;
+                }
+
+                // Move() indexes the list with the dragged row already lifted out
+                if (to > from)
+                {
+                    to--;
+                }
+            }
+
+            if (to != from)
+            {
+                model.Plots.Move(from, to);
+                model.Persist();
+            }
+        }
+
+        /// <summary>The plot whose row the given visual sits in, if any.</summary>
+        private static PlotConfig ItemUnder(DependencyObject source)
+        {
+            while (source != null && !(source is ListBoxItem))
+            {
+                source = source is Visual || source is Visual3D
+                    ? VisualTreeHelper.GetParent(source)
+                    : LogicalTreeHelper.GetParent(source);
+            }
+
+            return (source as ListBoxItem)?.DataContext as PlotConfig;
+        }
+
         private void OnPointActivated(object sender, PlotPoint point)
         {
             model?.ActivatePoint(point);
@@ -93,26 +178,6 @@ namespace PlayniteCharts.Views
         private void OnValueEdited(object sender, ValueEditEventArgs e)
         {
             model?.ApplyEdit(e.Point, e.Column, e.Value);
-        }
-
-        /// <summary>The table's columns follow whichever fields the current plot uses.</summary>
-        private void RebuildTableColumns()
-        {
-            if (!(Table.View is GridView grid) || model == null)
-            {
-                return;
-            }
-
-            grid.Columns.Clear();
-            for (var i = 0; i < model.TableColumns.Count; i++)
-            {
-                grid.Columns.Add(new GridViewColumn
-                {
-                    Header = model.TableColumns[i],
-                    DisplayMemberBinding = new Binding($"Values[{i}]"),
-                    Width = i == 0 ? 240 : double.NaN
-                });
-            }
         }
     }
 }

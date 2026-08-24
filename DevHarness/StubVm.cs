@@ -50,8 +50,8 @@ namespace PlayniteCharts.DevHarness
 
         public PlotConfig SelectedPlot { get; set; }
         public bool HasPlot => true;
-        public bool ShowPlot => true;
         public bool HasFilters => Filters.Count > 0;
+        public bool UseLibraryFilter { get; set; }
         public ViewSettings View { get; } = new ViewSettings();
         public IReadOnlyList<ColorRamp> ColorRamps => ColorRamp.All;
         public string SourceSummary => "720 games";

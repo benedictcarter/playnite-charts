@@ -150,23 +150,29 @@
         <Grid Grid.Column="0" Margin="10,8,6,8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="2*" MinHeight="90" />
+                <!-- the saved list is sized by its contents, so it grows a row at a
+                     time and never leaves an empty box under the New button -->
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="3*" />
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="SAVED PLOTS" Style="{StaticResource SectionHeader}"
                        Margin="0,0,0,5" />
 
-            <Border Grid.Row="1" BorderThickness="1" BorderBrush="{DynamicResource NormalBorderBrush}">
+            <Border Grid.Row="1" BorderThickness="1" BorderBrush="{DynamicResource NormalBorderBrush}"
+                    MaxHeight="320">
                 <!-- stacked, not docked, so "New" sits right under the last plot -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <ListBox ItemsSource="{Binding Plots}" SelectedItem="{Binding SelectedPlot}"
+                        <ListBox x:Name="PlotList" ItemsSource="{Binding Plots}" SelectedItem="{Binding SelectedPlot}"
                              BorderThickness="0" Background="Transparent"
-                             HorizontalContentAlignment="Stretch">
+                             HorizontalContentAlignment="Stretch" AllowDrop="True"
+                             PreviewMouseLeftButtonDown="OnPlotListMouseDown"
+                             PreviewMouseMove="OnPlotListMouseMove"
+                             DragOver="OnPlotListDragOver" Drop="OnPlotListDrop">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="ToolTip" Value="Drag to reorder" />
                                 <Setter Property="ContextMenu">
                                     <Setter.Value>
                                         <ContextMenu>
@@ -187,9 +193,7 @@
                 </ScrollViewer>
             </Border>
 
-            <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="Transparent" />
-
-            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0"
+            <ScrollViewer Grid.Row="2" Margin="0,5,0,0" VerticalScrollBarVisibility="Auto" Padding="0,0,8,0"
                           Visibility="{Binding HasPlot, Converter={StaticResource BoolToVis}}">
                 <StackPanel DataContext="{Binding SelectedPlot}">
                     <TextBlock Text="NAME" Style="{StaticResource SectionHeader}" Margin="0,4,0,3" />
@@ -280,6 +284,11 @@
                                Visibility="{Binding DataContext.HasFilters,
                                    RelativeSource={RelativeSource AncestorType=UserControl},
                                    Converter={StaticResource InverseBoolToVis}}" />
+                    <CheckBox Content="Use library filter" Margin="0,3,0,4"
+                              Foreground="{DynamicResource TextBrush}"
+                              ToolTip="Plot only the games the library view's filter currently shows, before these filters run"
+                              IsChecked="{Binding DataContext.UseLibraryFilter,
+                                  RelativeSource={RelativeSource AncestorType=UserControl}}" />
 
                     <TextBlock Text="APPEARANCE  (all plots)" Style="{StaticResource SectionHeader}" />
                     <CheckBox Content="Show legend" IsChecked="{Binding DataContext.View.ShowLegend, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,3"
@@ -341,28 +350,9 @@
             <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,6">
                 <TextBlock DockPanel.Dock="Left" Text="{Binding SourceSummary}" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextBrush}" Opacity="0.75" />
-                <Button DockPanel.Dock="Right" Content="Refresh" Padding="10,3" Margin="6,0,0,0"
-                        Command="{Binding RefreshCommand}" />
-                <CheckBox DockPanel.Dock="Right" Content="Table" VerticalAlignment="Center" Margin="12,0,0,0"
-                          Foreground="{DynamicResource TextBrush}"
-                          ToolTip="Show the plotted rows as text instead of marks"
-                          IsChecked="{Binding ShowTable}" />
-                <CheckBox DockPanel.Dock="Right" Content="Use library filter" VerticalAlignment="Center"
-                          Foreground="{DynamicResource TextBrush}"
-                          ToolTip="Plot only the games the library view's filter currently shows"
-                          IsChecked="{Binding UseLibraryFilter}" />
             </DockPanel>
 
-            <controls:BubblePlotControl x:Name="Plot" Grid.Row="1" Model="{Binding Model}"
-                                        Visibility="{Binding ShowPlot, Converter={StaticResource BoolToVis}}" />
-
-            <ListView x:Name="Table" Grid.Row="1" ItemsSource="{Binding TableRows}"
-                      Visibility="{Binding ShowTable, Converter={StaticResource BoolToVis}}"
-                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                <ListView.View>
-                    <GridView x:Name="TableGrid" />
-                </ListView.View>
-            </ListView>
+            <controls:BubblePlotControl x:Name="Plot" Grid.Row="1" Model="{Binding Model}" />
         </Grid>
     </Grid>
 </UserControl>
