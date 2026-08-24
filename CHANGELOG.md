@@ -1,12 +1,12 @@
 # Changelog
 
-## 1.0.0 — 2026-08-24
+## 1.0.0 - 2026-08-24
 
 First release.
 
 - Configurable bubble plots over the game library: X, Y, bubble size, colour,
   shape and the hover card each take any column of the game table.
-- Any number of saved plots — new, duplicate, rename, delete, and drag to reorder.
+- Any number of saved plots - new, duplicate, rename, delete, and drag to reorder.
 - Filters shared by every plot: range sliders for numbers and dates, tick lists
   for categories, multi-value columns de-duped per value.
 - Bubble **area** carries the size value, not its radius.
