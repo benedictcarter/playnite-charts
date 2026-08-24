@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:PlayniteCharts.Controls"
              xmlns:model="clr-namespace:PlayniteCharts.Model"
+             xmlns:vm="clr-namespace:PlayniteCharts.ViewModels"
              mc:Ignorable="d"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -12,6 +13,7 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <vm:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
 
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextBrushDarker}" />
@@ -80,6 +82,61 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="MiniButton" TargetType="Button">
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Margin" Value="3,0,0,0" />
+        </Style>
+
+        <!-- one filter: a range for numbers and dates, a tick list for the rest -->
+        <DataTemplate DataType="{x:Type vm:FilterViewModel}">
+            <Border BorderThickness="1" BorderBrush="{DynamicResource NormalBorderBrush}"
+                    Padding="5,3,3,5" Margin="0,0,0,5">
+                <StackPanel>
+                    <DockPanel LastChildFill="True">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource RowDelete}"
+                                ToolTip="Remove this filter"
+                                Command="{Binding DataContext.RemoveFilterCommand,
+                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrush}" />
+                    </DockPanel>
+
+                    <StackPanel Visibility="{Binding IsRange, Converter={StaticResource BoolToVis}}">
+                        <controls:RangeSlider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                                              Lower="{Binding Lower}" Upper="{Binding Upper}"
+                                              Step="{Binding Step}" Margin="0,2,0,0"
+                                              TrackBrush="{DynamicResource NormalBorderBrush}"
+                                              AccentBrush="{DynamicResource GlyphBrush}" />
+                        <TextBlock Text="{Binding RangeText}" FontSize="11" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrushDarker}" />
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding IsList, Converter={StaticResource BoolToVis}}">
+                        <DockPanel LastChildFill="False" Margin="0,2,0,2">
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding Summary}" FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextBrushDarker}" />
+                            <Button DockPanel.Dock="Right" Content="None" Style="{StaticResource MiniButton}"
+                                    Command="{Binding NoneCommand}" />
+                            <Button DockPanel.Dock="Right" Content="All" Style="{StaticResource MiniButton}"
+                                    Command="{Binding AllCommand}" />
+                        </DockPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="150">
+                            <ItemsControl ItemsSource="{Binding Values}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked}"
+                                                  Margin="2,1" Foreground="{DynamicResource TextBrush}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -190,6 +247,38 @@
                             </ItemsControl>
                         </ScrollViewer>
                     </Border>
+
+                    <DockPanel LastChildFill="False">
+                        <TextBlock DockPanel.Dock="Left" Text="FILTERS" Style="{StaticResource SectionHeader}" />
+                        <Button x:Name="AddFilterButton" DockPanel.Dock="Right" Content="Add"
+                                Padding="6,0" Margin="3,8,0,2" FontSize="10" Click="OnAddFilterClick"
+                                ToolTip="Filter the plotted games by any column">
+                            <Button.ContextMenu>
+                                <ContextMenu ItemsSource="{Binding FilterFields}">
+                                    <ContextMenu.ItemContainerStyle>
+                                        <Style TargetType="MenuItem">
+                                            <Setter Property="Header" Value="{Binding Name}" />
+                                            <Setter Property="Command"
+                                                    Value="{Binding DataContext.AddFilterCommand,
+                                                        RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            <Setter Property="CommandParameter" Value="{Binding}" />
+                                        </Style>
+                                    </ContextMenu.ItemContainerStyle>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                        <Button DockPanel.Dock="Right" Content="Clear" Padding="6,0" Margin="3,8,0,2" FontSize="10"
+                                ToolTip="Remove every filter from this plot"
+                                Command="{Binding DataContext.ClearFiltersCommand,
+                                    RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    </DockPanel>
+                    <ItemsControl ItemsSource="{Binding DataContext.Filters,
+                                      RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    <TextBlock Text="No filters - everything is plotted" FontSize="11" FontStyle="Italic"
+                               Margin="0,0,0,4" Foreground="{DynamicResource TextBrushDarker}"
+                               Visibility="{Binding DataContext.HasFilters,
+                                   RelativeSource={RelativeSource AncestorType=UserControl},
+                                   Converter={StaticResource InverseBoolToVis}}" />
 
                     <TextBlock Text="APPEARANCE" Style="{StaticResource SectionHeader}" />
                     <CheckBox Content="Show legend" IsChecked="{Binding ShowLegend}" Margin="0,3"

@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using Playnite.SDK;
+using Playnite.SDK.Models;
 using PlayniteCharts.Model;
 using PlayniteCharts.ViewModels;
 
@@ -13,7 +16,7 @@ namespace PlayniteCharts.DevHarness
     /// </summary>
     internal class StubVm : ObservableObject
     {
-        public StubVm()
+        public StubVm(IList<Game> library = null)
         {
             var a = new PlotConfig { Name = "release date vs user score" };
             var b = new PlotConfig { Name = "playtime vs critic score" };
@@ -24,14 +27,30 @@ namespace PlayniteCharts.DevHarness
             {
                 HoverOptions.Add(new HoverOption { Field = f, IsChecked = true });
             }
+
+            FilterFields = GameColumns.All.Where(f => !f.HoverOnly).ToList();
+            AddFilterCommand = new RelayCommand<object>(_ => { });
+            RemoveFilterCommand = new RelayCommand<object>(_ => { });
+            ClearFiltersCommand = new RelayCommand<object>(_ => { });
+
+            if (library == null)
+            {
+                return;
+            }
+
+            // one of each shape of filter, so the templates get looked at
+            Show("userscore", library);
+            Show("genre", library);
         }
 
         public ObservableCollection<PlotConfig> Plots { get; }
         public ObservableCollection<HoverOption> HoverOptions { get; } = new ObservableCollection<HoverOption>();
+        public ObservableCollection<FilterViewModel> Filters { get; } = new ObservableCollection<FilterViewModel>();
 
         public PlotConfig SelectedPlot { get; set; }
         public bool HasPlot => true;
         public bool ShowPlot => true;
+        public bool HasFilters => Filters.Count > 0;
         public string SourceSummary => "720 games";
 
         public List<GameColumn> XFields => GameColumns.Continuous;
@@ -39,5 +58,21 @@ namespace PlayniteCharts.DevHarness
         public List<GameColumn> SizeFields => GameColumns.Continuous;
         public List<GameColumn> ColorFields => GameColumns.Discrete;
         public List<GameColumn> ShapeFields => GameColumns.Discrete;
+        public List<GameColumn> FilterFields { get; }
+
+        public RelayCommand<object> AddFilterCommand { get; }
+        public RelayCommand<object> RemoveFilterCommand { get; }
+        public RelayCommand<object> ClearFiltersCommand { get; }
+
+        private void Show(string fieldId, IList<Game> library)
+        {
+            var field = GameColumns.All.FirstOrDefault(f => f.Id == fieldId);
+            if (field == null)
+            {
+                return;
+            }
+
+            Filters.Add(new FilterViewModel(field, new FilterConfig { FieldId = fieldId }, library, () => { }));
+        }
     }
 }

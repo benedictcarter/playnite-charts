@@ -20,6 +20,7 @@ namespace PlayniteCharts.Model
         private List<string> hoverFieldIds = GameColumns.All.Select(f => f.Id).ToList();
         private bool showLegend = true;
         private bool missingAsZero;
+        private List<FilterConfig> filters = new List<FilterConfig>();
         private double minBubbleSize = 3;
         private double maxBubbleSize = 12;
 
@@ -75,6 +76,13 @@ namespace PlayniteCharts.Model
             set => SetValue(ref missingAsZero, value);
         }
 
+        /// <summary>Saved with the plot: which games it is allowed to draw.</summary>
+        public List<FilterConfig> Filters
+        {
+            get => filters;
+            set => SetValue(ref filters, value ?? new List<FilterConfig>());
+        }
+
         public bool ShowLegend
         {
             get => showLegend;
@@ -106,6 +114,7 @@ namespace PlayniteCharts.Model
                 ShapeFieldId = ShapeFieldId,
                 HoverFieldIds = new List<string>(HoverFieldIds ?? new List<string>()),
                 MissingAsZero = MissingAsZero,
+                Filters = (Filters ?? new List<FilterConfig>()).Select(f => f.Clone()).ToList(),
                 ShowLegend = ShowLegend,
                 MinBubbleSize = MinBubbleSize,
                 MaxBubbleSize = MaxBubbleSize

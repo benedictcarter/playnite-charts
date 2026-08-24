@@ -43,6 +43,24 @@ namespace PlayniteCharts.Views
             }
         }
 
+        /// <summary>
+        /// The menu is not in the visual tree, so it cannot walk up to the view
+        /// model on its own - hand it the same DataContext the view has.
+        /// </summary>
+        private void OnAddFilterClick(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var menu = AddFilterButton.ContextMenu;
+            if (menu == null)
+            {
+                return;
+            }
+
+            menu.DataContext = model;
+            menu.PlacementTarget = AddFilterButton;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+
         private void OnPointActivated(object sender, PlotPoint point)
         {
             model?.ActivatePoint(point);

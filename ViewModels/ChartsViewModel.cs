@@ -44,6 +44,7 @@ namespace PlayniteCharts.ViewModels
         private bool showTable;
         private bool tableDirty = true;
         private IList<Game> domainSource = new List<Game>();
+        private readonly System.Windows.Threading.DispatcherTimer filterDebounce;
 
         public ObservableCollection<PlotConfig> Plots { get; }
 
@@ -54,6 +55,12 @@ namespace PlayniteCharts.ViewModels
         public List<GameColumn> ShapeFields { get; }
         public ObservableCollection<HoverOption> HoverOptions { get; } = new ObservableCollection<HoverOption>();
 
+        /// <summary>The filter rows of the selected plot, rebuilt when it changes.</summary>
+        public ObservableCollection<FilterViewModel> Filters { get; } = new ObservableCollection<FilterViewModel>();
+
+        /// <summary>Columns worth filtering on: free text and the game name are not.</summary>
+        public List<GameColumn> FilterFields { get; }
+
         public List<string> TableColumns { get; private set; } = new List<string>();
         public List<TableRow> TableRows { get; private set; } = new List<TableRow>();
 
@@ -63,6 +70,9 @@ namespace PlayniteCharts.ViewModels
         public RelayCommand<object> RefreshCommand { get; }
         public RelayCommand<object> AllHoverCommand { get; }
         public RelayCommand<object> NoHoverCommand { get; }
+        public RelayCommand<object> AddFilterCommand { get; }
+        public RelayCommand<object> RemoveFilterCommand { get; }
+        public RelayCommand<object> ClearFiltersCommand { get; }
 
         public ChartsViewModel(ChartsPlugin plugin, IPlayniteAPI api)
         {
@@ -80,6 +90,23 @@ namespace PlayniteCharts.ViewModels
             {
                 HoverOptions.Add(new HoverOption { Field = f });
             }
+
+            FilterFields = GameColumns.All
+                .Where(f => !f.HoverOnly && !string.Equals(f.Id, "name", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(f => f.Group).ThenBy(f => f.Name).ToList();
+
+            // a slider drag is a stream of changes; rebuilding the whole plot on
+            // every one of them would make the handle stutter on a big library
+            filterDebounce = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(150)
+            };
+            filterDebounce.Tick += (s, e) =>
+            {
+                filterDebounce.Stop();
+                Persist();
+                Rebuild();
+            };
 
             Plots = new ObservableCollection<PlotConfig>(plugin.Settings.Plots);
             Plots.CollectionChanged += OnPlotsChanged;
@@ -99,6 +126,9 @@ namespace PlayniteCharts.ViewModels
             RefreshCommand = new RelayCommand<object>(_ => Refresh());
             AllHoverCommand = new RelayCommand<object>(_ => SetAllHover(true), _ => SelectedPlot != null);
             NoHoverCommand = new RelayCommand<object>(_ => SetAllHover(false), _ => SelectedPlot != null);
+            AddFilterCommand = new RelayCommand<object>(o => AddFilter(o as GameColumn));
+            RemoveFilterCommand = new RelayCommand<object>(o => RemoveFilter(o as FilterViewModel));
+            ClearFiltersCommand = new RelayCommand<object>(_ => ClearFilters(), _ => Filters.Count > 0);
 
             foreach (var o in HoverOptions)
             {
@@ -118,6 +148,7 @@ namespace PlayniteCharts.ViewModels
 
                 SetValue(ref selectedPlot, value);
                 plugin.Settings.LastSelectedPlotId = value?.Id ?? Guid.Empty;
+                SyncFilters();
                 SyncHoverOptions();
                 Rebuild();
                 OnPropertyChanged(nameof(HasPlot));
@@ -180,6 +211,7 @@ namespace PlayniteCharts.ViewModels
             try
             {
                 domainSource = api.Database.Games.Where(g => !g.Hidden).ToList();
+                SyncFilters();
                 Rebuild();
             }
             catch (Exception e)
@@ -224,9 +256,13 @@ namespace PlayniteCharts.ViewModels
                     domainSource = games;
                 }
 
+                var shown = ApplyFilters(games);
                 SourceSummary = UseLibraryFilter
-                    ? $"Using the library filter - {games.Count:N0} of {domainSource.Count:N0} games"
-                    : $"Whole library - {domainSource.Count:N0} games";
+                    ? $"Using the library filter - {shown.Count:N0} of {domainSource.Count:N0} games"
+                    : (shown.Count == domainSource.Count
+                        ? $"Whole library - {domainSource.Count:N0} games"
+                        : $"Filtered - {shown.Count:N0} of {domainSource.Count:N0} games");
+                games = shown;
 
                 Model = PlotModel.Build(selectedPlot, games, domainSource,
                     PlotTheme.SeriesCapacity, MarkShapes.Count);
@@ -293,6 +329,100 @@ namespace PlayniteCharts.ViewModels
             OnPropertyChanged(nameof(TableColumns));
             OnPropertyChanged(nameof(TableRows));
         }
+
+        // ---------------------------------------------------------------- filters
+
+        /// <summary>
+        /// The subset of games this plot is allowed to draw. The colour and shape
+        /// domains still come from the whole library, so filtering never repaints
+        /// the categories that survive it.
+        /// </summary>
+        private IList<Game> ApplyFilters(IList<Game> games)
+        {
+            var active = (selectedPlot.Filters ?? new List<FilterConfig>())
+                .Where(f => !f.IsInert)
+                .Select(f => new KeyValuePair<FilterConfig, GameColumn>(f, GameColumns.Get(f.FieldId)))
+                .Where(pair => pair.Value != null)
+                .ToList();
+
+            if (active.Count == 0)
+            {
+                return games;
+            }
+
+            return games.Where(g => active.All(pair => pair.Key.Passes(pair.Value, g))).ToList();
+        }
+
+        /// <summary>Rebuilds the filter rows from the selected plot's saved filters.</summary>
+        private void SyncFilters()
+        {
+            Filters.Clear();
+            if (selectedPlot?.Filters == null)
+            {
+                return;
+            }
+
+            // a filter on a column that no longer exists is dropped rather than kept
+            // as a row that cannot be edited
+            selectedPlot.Filters.RemoveAll(f => GameColumns.Get(f.FieldId) == null);
+            foreach (var f in selectedPlot.Filters)
+            {
+                Filters.Add(new FilterViewModel(GameColumns.Get(f.FieldId), f, domainSource, OnFilterChanged));
+            }
+
+            OnPropertyChanged(nameof(HasFilters));
+        }
+
+        private void OnFilterChanged()
+        {
+            filterDebounce.Stop();
+            filterDebounce.Start();
+        }
+
+        private void AddFilter(GameColumn field)
+        {
+            if (field == null || selectedPlot == null)
+            {
+                return;
+            }
+
+            if (selectedPlot.Filters.Any(f => string.Equals(f.FieldId, field.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            selectedPlot.Filters.Add(new FilterConfig { FieldId = field.Id });
+            SyncFilters();
+            Persist();
+        }
+
+        private void RemoveFilter(FilterViewModel filter)
+        {
+            if (filter == null || selectedPlot == null)
+            {
+                return;
+            }
+
+            selectedPlot.Filters.Remove(filter.Config);
+            SyncFilters();
+            Persist();
+            Rebuild();
+        }
+
+        private void ClearFilters()
+        {
+            if (selectedPlot == null || selectedPlot.Filters.Count == 0)
+            {
+                return;
+            }
+
+            selectedPlot.Filters.Clear();
+            SyncFilters();
+            Persist();
+            Rebuild();
+        }
+
+        public bool HasFilters => Filters.Count > 0;
 
         // -------------------------------------------------------------- plot list
 

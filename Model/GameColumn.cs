@@ -32,6 +32,16 @@ namespace PlayniteCharts.Model
         /// <summary>Bucket for a discrete channel (colour, shape). Null = no data.</summary>
         public Func<Game, string> GetCategory { get; set; }
 
+        /// <summary>
+        /// Every value the game holds on this column. Tags, genres and the like are
+        /// lists, and a filter has to treat each entry as its own thing - colour and
+        /// shape still collapse to <see cref="GetCategory"/> because a mark can only
+        /// have one of each. Null means the column is single-valued.
+        /// </summary>
+        public Func<Game, IEnumerable<string>> GetCategories { get; set; }
+
+        public bool IsMultiValued => GetCategories != null;
+
         /// <summary>Human text for tooltips. Falls back to the other two.</summary>
         public Func<Game, string> GetDisplay { get; set; }
 
@@ -71,6 +81,30 @@ namespace PlayniteCharts.Model
             }
 
             return Math.Abs(value) >= 1000 ? value.ToString("N0") : value.ToString("0.##");
+        }
+
+        /// <summary>The values a filter offers, de-duplicated, never null.</summary>
+        public IEnumerable<string> Categories(Game game)
+        {
+            if (GetCategories != null)
+            {
+                var seen = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
+                foreach (var v in GetCategories(game) ?? Enumerable.Empty<string>())
+                {
+                    if (!string.IsNullOrEmpty(v) && seen.Add(v))
+                    {
+                        yield return v;
+                    }
+                }
+
+                yield break;
+            }
+
+            var single = GetCategory?.Invoke(game);
+            if (!string.IsNullOrEmpty(single))
+            {
+                yield return single;
+            }
         }
 
         public string Display(Game game)
@@ -246,6 +280,19 @@ namespace PlayniteCharts.Model
             };
         }
 
+        /// <summary>
+        /// A column whose games each hold a list (tags, genres, ...). Colour and
+        /// shape keep using the first value; filters see them one by one.
+        /// </summary>
+        private static GameColumn Multi<T>(string id, string name, Func<Game, IEnumerable<T>> get)
+            where T : DatabaseObject
+        {
+            var f = Cat(id, name, g => First(get(g)) ?? "(none)", g => Join(get(g)));
+            f.GetCategories = g => (get(g) ?? Enumerable.Empty<T>())
+                .Select(i => i.Name).Where(n => !string.IsNullOrEmpty(n));
+            return f;
+        }
+
         private static List<GameColumn> Build()
         {
             return new List<GameColumn>
@@ -271,16 +318,16 @@ namespace PlayniteCharts.Model
                     g => g.Source != null ? g.Source.Name : null),
                 Cat("completion", "Completion status", g => g.CompletionStatus != null ? g.CompletionStatus.Name : "(not set)",
                     g => g.CompletionStatus != null ? g.CompletionStatus.Name : null),
-                Cat("platform", "Platform", g => First(g.Platforms) ?? "(none)", g => Join(g.Platforms)),
-                Cat("genre", "Genre", g => First(g.Genres) ?? "(none)", g => Join(g.Genres)),
-                Cat("category", "Category", g => First(g.Categories) ?? "(none)", g => Join(g.Categories)),
-                Cat("series", "Series", g => First(g.Series) ?? "(none)", g => Join(g.Series)),
-                Cat("developer", "Developer", g => First(g.Developers) ?? "(none)", g => Join(g.Developers)),
-                Cat("publisher", "Publisher", g => First(g.Publishers) ?? "(none)", g => Join(g.Publishers)),
-                Cat("agerating", "Age rating", g => First(g.AgeRatings) ?? "(none)", g => Join(g.AgeRatings)),
-                Cat("region", "Region", g => First(g.Regions) ?? "(none)", g => Join(g.Regions)),
-                Cat("feature", "Feature", g => First(g.Features) ?? "(none)", g => Join(g.Features)),
-                Cat("tag", "Tag", g => First(g.Tags) ?? "(none)", g => Join(g.Tags)),
+                Multi("platform", "Platform", g => g.Platforms),
+                Multi("genre", "Genre", g => g.Genres),
+                Multi("category", "Category", g => g.Categories),
+                Multi("series", "Series", g => g.Series),
+                Multi("developer", "Developer", g => g.Developers),
+                Multi("publisher", "Publisher", g => g.Publishers),
+                Multi("agerating", "Age rating", g => g.AgeRatings),
+                Multi("region", "Region", g => g.Regions),
+                Multi("feature", "Feature", g => g.Features),
+                Multi("tag", "Tag", g => g.Tags),
                 Cat("installed", "Installed", g => g.IsInstalled ? "Installed" : "Not installed", group: "Flags"),
                 Cat("favorite", "Favorite", g => g.Favorite ? "Favorite" : "Not favorite",
                     g => g.Favorite ? "Yes" : null, group: "Flags"),

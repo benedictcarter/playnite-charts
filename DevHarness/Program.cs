@@ -36,6 +36,9 @@ namespace PlayniteCharts.DevHarness
         private const int Width = 1180;
         private const int Height = 720;
 
+        // the settings panel is a tall scroller; the smoke shot shows all of it at once
+        private const int TallHeight = 1500;
+
         [STAThread]
         private static int Main(string[] args)
         {
@@ -105,7 +108,7 @@ namespace PlayniteCharts.DevHarness
             }
 
             BenchTable(db);
-            SmokeTestView(Path.Combine(outDir, "chartsview.png"));
+            SmokeTestView(Path.Combine(outDir, "chartsview.png"), games);
             return 0;
         }
 
@@ -140,7 +143,7 @@ namespace PlayniteCharts.DevHarness
         /// Parses ChartsView.xaml for real. A XAML error only shows up at load time,
         /// and in Playnite that means a silent extension-load failure in the log.
         /// </summary>
-        private static void SmokeTestView(string file)
+        private static void SmokeTestView(string file, IList<Game> library)
         {
             if (Application.Current == null)
             {
@@ -153,21 +156,23 @@ namespace PlayniteCharts.DevHarness
             res["TextBrush"] = new SolidColorBrush(Color.FromRgb(0xF2, 0xF2, 0xF2));
             res["TextBrushDarker"] = new SolidColorBrush(Color.FromRgb(0xA3, 0xA3, 0xA3));
             res["NormalBorderBrush"] = new SolidColorBrush(Color.FromRgb(0x40, 0x48, 0x60));
+            res["NormalBrush"] = new SolidColorBrush(Color.FromRgb(0x2A, 0x32, 0x4C));
+            res["GlyphBrush"] = new SolidColorBrush(Color.FromRgb(0x7E, 0x9C, 0xD8));
 
             try
             {
                 var host = new Border
                 {
                     Background = new SolidColorBrush(Color.FromRgb(0x15, 0x1D, 0x38)),
-                    Child = new Views.ChartsView { DataContext = new StubVm() },
+                    Child = new Views.ChartsView { DataContext = new StubVm(library) },
                     Width = Width,
-                    Height = Height
+                    Height = TallHeight
                 };
-                host.Measure(new Size(Width, Height));
-                host.Arrange(new Rect(0, 0, Width, Height));
+                host.Measure(new Size(Width, TallHeight));
+                host.Arrange(new Rect(0, 0, Width, TallHeight));
                 host.UpdateLayout();
 
-                var bmp = new RenderTargetBitmap(Width, Height, 96, 96, PixelFormats.Pbgra32);
+                var bmp = new RenderTargetBitmap(Width, TallHeight, 96, 96, PixelFormats.Pbgra32);
                 bmp.Render(host);
                 var png = new PngBitmapEncoder();
                 png.Frames.Add(BitmapFrame.Create(bmp));
