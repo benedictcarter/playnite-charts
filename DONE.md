@@ -10,7 +10,8 @@
 
 ## 2026-08-24 - extracted into its own repo
 - The extension began life in a fork of Playnite (`benedictcarter/playnite_charts`,
-  branch `charts`). Nothing under `source/` was ever modified: the extension only
+  branch `charts`, deleted once the extraction was done). Nothing under `source/`
+  was ever modified: the extension only
   ever referenced the SDK from NuGet, so the fork was not needed to build it.
 - Split out here with its own history (18 commits replayed from the fork), the
   extension at the repo root. The fork stays on GitHub as the record of the
