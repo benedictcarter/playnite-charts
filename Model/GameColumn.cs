@@ -152,6 +152,12 @@ namespace PlayniteCharts.Model
 
         public static List<GameColumn> Discrete => All.Where(f => f.IsDiscrete && !f.HoverOnly).ToList();
 
+        /// <summary>Anything colour can encode: a category gets a palette slot, a
+        /// number or a date gets a position on a ramp. Discrete first, because a
+        /// category is what colour is usually for.</summary>
+        public static List<GameColumn> Colorable =>
+            Discrete.Concat(All.Where(f => f.IsContinuous)).ToList();
+
         private static string First<T>(IEnumerable<T> items) where T : DatabaseObject
         {
             if (items == null)

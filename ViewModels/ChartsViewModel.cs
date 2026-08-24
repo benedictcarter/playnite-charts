@@ -90,7 +90,7 @@ namespace PlayniteCharts.ViewModels
             XFields = GameColumns.Continuous;
             YFields = GameColumns.Continuous;
             SizeFields = new[] { none }.Concat(GameColumns.Continuous).ToList();
-            ColorFields = new[] { none }.Concat(GameColumns.Discrete).ToList();
+            ColorFields = new[] { none }.Concat(GameColumns.Colorable).ToList();
             ShapeFields = new[] { none }.Concat(GameColumns.Discrete).ToList();
 
             foreach (var f in GameColumns.All.OrderBy(f => f.Group).ThenBy(f => f.Name))
