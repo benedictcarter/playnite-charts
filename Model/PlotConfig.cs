@@ -58,31 +58,6 @@ namespace PlayniteCharts.Model
             set => SetValue(ref shapeFieldId, value);
         }
 
-        // ---- legacy: these were per-plot before the settings were shared. They are
-        // still deserialized so an existing settings file can be lifted into
-        // ViewSettings once, then they stay null and are never written to again.
-
-        public List<string> HoverFieldIds { get; set; }
-        public List<FilterConfig> Filters { get; set; }
-        public bool ShowLegend { get; set; }
-        public bool MissingAsZero { get; set; }
-        public double MinBubbleSize { get; set; }
-        public double MaxBubbleSize { get; set; }
-
-        /// <summary>True while this plot still carries pre-shared-settings values.</summary>
-        public bool HasLegacyView =>
-            HoverFieldIds != null || Filters != null || MinBubbleSize > 0 || MaxBubbleSize > 0;
-
-        public void DropLegacyView()
-        {
-            HoverFieldIds = null;
-            Filters = null;
-            ShowLegend = false;
-            MissingAsZero = false;
-            MinBubbleSize = 0;
-            MaxBubbleSize = 0;
-        }
-
         public PlotConfig Clone(string newName)
         {
             return new PlotConfig

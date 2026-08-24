@@ -1,7 +1,9 @@
-using System;
 using System.ComponentModel;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Media;
 using PlayniteCharts.Controls;
 using PlayniteCharts.Model;
 using PlayniteCharts.ViewModels;
@@ -11,6 +13,7 @@ namespace PlayniteCharts.Views
     public partial class ChartsView : UserControl
     {
         private ChartsViewModel model;
+        private bool inkedMenu;
 
         public ChartsView()
         {
@@ -21,7 +24,7 @@ namespace PlayniteCharts.Views
             DataContextChanged += OnDataContextChanged;
         }
 
-        private void OnDataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs e)
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (model != null)
             {
@@ -44,13 +47,7 @@ namespace PlayniteCharts.Views
             }
         }
 
-        /// <summary>
-        /// The menu is not in the visual tree, so it cannot walk up to the view
-        /// model on its own - hand it the same DataContext the view has.
-        /// </summary>
-        private bool inkedMenu;
-
-        private void OnAddFilterClick(object sender, System.Windows.RoutedEventArgs e)
+        private void OnAddFilterClick(object sender, RoutedEventArgs e)
         {
             var menu = AddFilterButton.ContextMenu;
             if (menu == null)
@@ -58,6 +55,7 @@ namespace PlayniteCharts.Views
                 return;
             }
 
+            // the menu is not in the visual tree, so it cannot walk up to the view model
             menu.DataContext = model;
 
             // The popup is its own visual tree, so a DynamicResource inside it can
@@ -65,19 +63,18 @@ namespace PlayniteCharts.Views
             // on Playnite's dark menu). Resolve the brush here - the button really is
             // in the themed tree - and bake it into the item style, which beats both
             // the unresolved setter and plain inheritance.
-            if (!inkedMenu && TryFindResource("TextBrush") is System.Windows.Media.Brush ink)
+            if (!inkedMenu && TryFindResource("TextBrush") is Brush ink)
             {
                 inkedMenu = true;
                 menu.Foreground = ink;
-                var style = new System.Windows.Style(
-                    typeof(System.Windows.Controls.MenuItem), menu.ItemContainerStyle);
-                style.Setters.Add(new System.Windows.Setter(ForegroundProperty, ink));
+                var style = new Style(typeof(MenuItem), menu.ItemContainerStyle);
+                style.Setters.Add(new Setter(ForegroundProperty, ink));
                 style.Seal();
                 menu.ItemContainerStyle = style;
             }
 
             menu.PlacementTarget = AddFilterButton;
-            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.Placement = PlacementMode.Bottom;
             menu.IsOpen = true;
         }
 

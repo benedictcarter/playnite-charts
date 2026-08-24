@@ -12,12 +12,6 @@ namespace PlayniteCharts.Controls
     /// </summary>
     public static class MarkShapes
     {
-        public static readonly string[] Names =
-        {
-            "Circle", "Square", "Triangle", "Diamond",
-            "Inverted triangle", "Plus", "Cross", "Hexagon"
-        };
-
         public const int Count = 8;
 
         /// <summary>Geometry centred on <paramref name="c"/> with the given outer radius.</summary>

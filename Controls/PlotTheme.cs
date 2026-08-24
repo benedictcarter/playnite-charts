@@ -7,16 +7,24 @@ using System.Windows.Media;
 namespace PlayniteCharts.Controls
 {
     /// <summary>
-    /// Chart colours. The categorical slots are a validated palette: every one of
-    /// the 28 pairs clears the CVD and normal-vision separation gates against the
-    /// surface it is drawn on, because a bubble plot puts arbitrary pairs of
-    /// categories side by side (unlike a bar chart, where only neighbours meet).
-    /// Slots are assigned in fixed order and never cycled - the 9th category folds
-    /// into a neutral "Other".
+    /// Chart colours for one surface.
     ///
-    /// Light and dark are the same hues re-stepped for their own surface, not an
-    /// automatic flip. Generated and checked with the data-viz validator; see
-    /// LESSONS_LEARNT.md for why the stock eight-slot palette could not be used.
+    /// The categorical slots are a validated palette. A bubble plot needs the
+    /// ALL-PAIRS gate, not the adjacent-pairs one: any two categories can end up
+    /// touching on the canvas, so every one of the 28 pairs has to be separable.
+    /// Both modes clear it (CVD dE 8.3 / 8.4, normal-vision dE 16.6 / 16.3 against
+    /// their own surface; the targets are 8 and 15).
+    ///
+    /// Light and dark are the same eight hues (OKLCH 18, 66, 132, 180, 234, 252,
+    /// 294, 324) re-stepped for their own surface, not an automatic flip, so slot
+    /// identity survives a theme change. Slots are assigned in fixed order and
+    /// never cycled - the 9th category folds into a neutral "Other".
+    ///
+    /// Three slots per mode sit below 3:1 contrast against the surface, which is
+    /// why the legend is always drawn, the hover card names the category, and the
+    /// table view lists the same rows as text. Do not hand-edit a hex without
+    /// re-running the data-viz validator: the set passes as a set, and a single
+    /// tweak breaks pairs elsewhere.
     /// </summary>
     public class PlotTheme
     {
@@ -37,22 +45,20 @@ namespace PlayniteCharts.Controls
         public Pen AxisPen { get; private set; }
 
         private Brush[] seriesBrushes;
-        private Pen ringPen;
 
         public Brush SeriesBrush(int slot) => seriesBrushes[Clamp(slot)];
 
         /// <summary>2px surface ring so overlapping marks stay separable.</summary>
-        public Pen RingPen => ringPen;
+        public Pen RingPen { get; private set; }
 
         /// <summary>Outline for the unfilled size-key bubbles in the legend.</summary>
         public Pen SizeRingPen { get; private set; }
 
-        public Color SeriesColor(int slot) => Series[Clamp(slot)];
-
         private int Clamp(int slot) => slot < 0 || slot >= Series.Length ? Series.Length - 1 : slot;
 
-        private static readonly string[] LightSeries = PaletteData.LightSeries;
-        private static readonly string[] DarkSeries = PaletteData.DarkSeries;
+        //                                                blue       orange     green      magenta    teal       red        violet     deep blue
+        private static readonly string[] LightSeries = { "#57a8ff", "#f89700", "#477900", "#81168c", "#00bfa8", "#da4053", "#8962e4", "#007eae" };
+        private static readonly string[] DarkSeries = { "#0f90fe", "#c97a00", "#416f00", "#c55fcf", "#00a692", "#cf354b", "#6a3ebf", "#006992" };
 
         /// <summary>
         /// Whether the last theme built was a dark one. A ramp preview swatch in the
@@ -86,7 +92,7 @@ namespace PlayniteCharts.Controls
             t.InkMutedBrush = Freeze(new SolidColorBrush(t.InkMuted));
             t.GridPen = Freeze(new Pen(new SolidColorBrush(t.Grid), 1));
             t.AxisPen = Freeze(new Pen(new SolidColorBrush(t.InkMuted), 1));
-            t.ringPen = Freeze(new Pen(t.SurfaceBrush, 2));
+            t.RingPen = Freeze(new Pen(t.SurfaceBrush, 2));
             t.SizeRingPen = Freeze(new Pen(t.InkMutedBrush, 1));
             return t;
         }

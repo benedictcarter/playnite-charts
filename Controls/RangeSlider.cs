@@ -66,9 +66,6 @@ namespace PlayniteCharts.Controls
         public Brush TrackBrush { get => (Brush)GetValue(TrackBrushProperty); set => SetValue(TrackBrushProperty, value); }
         public Brush AccentBrush { get => (Brush)GetValue(AccentBrushProperty); set => SetValue(AccentBrushProperty, value); }
 
-        /// <summary>Raised when a drag ends, so the caller can save and rebuild once.</summary>
-        public event EventHandler DragCompleted;
-
         private double Span => Math.Abs(Maximum - Minimum) < 1e-12 ? 1 : Maximum - Minimum;
 
         private double ToX(double value) =>
@@ -136,7 +133,6 @@ namespace PlayniteCharts.Controls
             {
                 dragging = false;
                 ReleaseMouseCapture();
-                DragCompleted?.Invoke(this, EventArgs.Empty);
             }
         }
 

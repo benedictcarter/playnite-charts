@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using Playnite.SDK;
 
 namespace PlayniteCharts.Model
@@ -76,28 +74,6 @@ namespace PlayniteCharts.Model
         {
             get => maxBubbleSize;
             set => SetValue(ref maxBubbleSize, value);
-        }
-
-        /// <summary>Lifts the values a pre-shared-settings plot carried on its own.</summary>
-        public static ViewSettings FromLegacyPlot(PlotConfig plot)
-        {
-            var v = new ViewSettings();
-            if (plot == null)
-            {
-                return v;
-            }
-
-            if (plot.HoverFieldIds != null && plot.HoverFieldIds.Count > 0)
-            {
-                v.HoverFieldIds = new List<string>(plot.HoverFieldIds);
-            }
-
-            v.Filters = (plot.Filters ?? new List<FilterConfig>()).Select(f => f.Clone()).ToList();
-            v.ShowLegend = plot.ShowLegend;
-            v.MissingAsZero = plot.MissingAsZero;
-            v.MinBubbleSize = plot.MinBubbleSize > 0 ? plot.MinBubbleSize : v.MinBubbleSize;
-            v.MaxBubbleSize = plot.MaxBubbleSize > 0 ? plot.MaxBubbleSize : v.MaxBubbleSize;
-            return v;
         }
     }
 }

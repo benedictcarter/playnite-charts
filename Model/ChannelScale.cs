@@ -6,11 +6,9 @@ using Playnite.SDK.Models;
 namespace PlayniteCharts.Model
 {
     /// <summary>
-    /// The one place a number becomes a fraction of a visual channel.
-    ///
-    /// Size and colour ask the same question - "where does this value sit between
-    /// the ends?" - so they ask it here rather than each deriving its own min/max.
-    /// That also means the rules only have to be right once:
+    /// The one place a number becomes a fraction of a visual channel. Size and
+    /// colour ask the same question - "where does this value sit between the ends?"
+    /// - so the rules only have to be right once:
     ///
     ///  * the range is the *plotted* range, so it follows the filters;
     ///  * a narrowed filter on the column wins over the observed range, because a
@@ -36,10 +34,6 @@ namespace PlayniteCharts.Model
 
         /// <summary>See <see cref="Fraction"/>.</summary>
         public bool AnchoredAtZero { get; private set; }
-
-        /// <summary>True once a filter has narrowed the column: the ends are the
-        /// user's, not the data's.</summary>
-        public bool IsWindowed { get; private set; }
 
         /// <summary>
         /// Builds the scale for one column over the games actually being plotted.
@@ -71,23 +65,24 @@ namespace PlayniteCharts.Model
             // leaves the range alone and only a real narrowing counts as a window.
             var window = (filters ?? Enumerable.Empty<FilterConfig>())
                 .FirstOrDefault(f => f != null && !f.IsInert && f.FieldId == field.Id);
+            var windowed = false;
             if (window != null)
             {
                 if (window.Lower.HasValue && window.Lower.Value > s.Min)
                 {
                     s.Min = window.Lower.Value;
-                    s.IsWindowed = true;
+                    windowed = true;
                 }
 
                 if (window.Upper.HasValue && window.Upper.Value < s.Max)
                 {
                     s.Max = window.Upper.Value;
-                    s.IsWindowed = true;
+                    windowed = true;
                 }
             }
 
             s.HasRange = s.Max > s.Min;
-            s.AnchoredAtZero = allowZeroAnchor && !s.IsWindowed
+            s.AnchoredAtZero = allowZeroAnchor && !windowed
                 && s.Min >= 0 && s.Max > 0 && field.Kind != FieldKind.Date;
             return s;
         }

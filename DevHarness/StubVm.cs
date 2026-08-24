@@ -56,16 +56,23 @@ namespace PlayniteCharts.DevHarness
         public IReadOnlyList<ColorRamp> ColorRamps => ColorRamp.All;
         public string SourceSummary => "720 games";
 
-        public List<GameColumn> XFields => GameColumns.Continuous;
-        public List<GameColumn> YFields => GameColumns.Continuous;
-        public List<GameColumn> SizeFields => GameColumns.Continuous;
-        public List<GameColumn> ColorFields => GameColumns.Discrete;
-        public List<GameColumn> ShapeFields => GameColumns.Discrete;
-        public List<GameColumn> FilterFields { get; }
+        public IReadOnlyList<GameColumn> XFields => GameColumns.Continuous;
+        public IReadOnlyList<GameColumn> YFields => GameColumns.Continuous;
+        public IReadOnlyList<GameColumn> SizeFields { get; } = Optional(GameColumns.Continuous);
+        public IReadOnlyList<GameColumn> ColorFields { get; } = Optional(GameColumns.Colorable);
+        public IReadOnlyList<GameColumn> ShapeFields { get; } = Optional(GameColumns.Discrete);
+        public IReadOnlyList<GameColumn> FilterFields { get; }
 
         public RelayCommand<object> AddFilterCommand { get; }
         public RelayCommand<object> RemoveFilterCommand { get; }
         public RelayCommand<object> ClearFiltersCommand { get; }
+
+        /// <summary>Mirrors ChartsViewModel: an optional channel starts with "(none)".</summary>
+        private static IReadOnlyList<GameColumn> Optional(IEnumerable<GameColumn> fields)
+        {
+            var none = new GameColumn { Id = string.Empty, Name = "(none)" };
+            return new[] { none }.Concat(fields).ToList();
+        }
 
         private void Show(string fieldId, IList<Game> library)
         {

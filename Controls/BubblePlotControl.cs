@@ -10,11 +10,6 @@ using PlayniteCharts.Model;
 
 namespace PlayniteCharts.Controls
 {
-    /// <summary>
-    /// Retained-mode bubble plot. The chart itself is drawn once per model/size
-    /// change into one visual; the hover ring and tooltip live in a second visual
-    /// so moving the mouse never re-renders thousands of marks.
-    /// </summary>
     /// <summary>A mark was dragged along an editable axis: write it back.</summary>
     public class ValueEditEventArgs : EventArgs
     {
@@ -30,21 +25,26 @@ namespace PlayniteCharts.Controls
         public double Value { get; }
     }
 
+    /// <summary>
+    /// Retained-mode bubble plot. The chart is drawn once per model/size change
+    /// into one visual; the hover ring, tooltip and titles live in a second visual,
+    /// so moving the mouse never re-renders thousands of marks.
+    /// </summary>
     public class BubblePlotControl : FrameworkElement
     {
-        /// <summary>
-        /// Fill opacity by how crowded the panel is - a few hundred marks read best
-        /// solid, a few thousand only read at all if they are translucent.
-        /// </summary>
-        private static double MarkOpacity(int count)
-        {
-            if (count <= 150)
-            {
-                return 0.9;
-            }
+        private const double SwatchSize = 13;
+        private const double RowHeight = 19;
+        private const double GradientBarWidth = 13;
+        private const double GradientBarHeight = 96;
+        private const double TitleSize = 11;
+        private const double TitleGap = 4;
 
-            return count >= 1200 ? 0.5 : 0.9 - (count - 150) * 0.4 / 1050;
-        }
+        /// <summary>A click must not nudge a score, so a drag only starts past this.</summary>
+        private const double DragSlop = 4;
+
+        /// <summary>Steps the colour ramp is frozen into - finer than the eye
+        /// resolves on a 12px mark, and a fixed cost whatever the game count.</summary>
+        private const int RampSteps = 64;
 
         private readonly DrawingVisual chartVisual = new DrawingVisual();
         private readonly DrawingVisual overlayVisual = new DrawingVisual();
@@ -53,8 +53,6 @@ namespace PlayniteCharts.Controls
         private Rect plotRect;
         private PlotTheme theme;
         private PlotPoint hovered;
-
-        private const int RampSteps = 64;
         private Brush[] rampBrushes;
 
         // measuring one FormattedText per game is the expensive half of drawing
@@ -72,9 +70,6 @@ namespace PlayniteCharts.Controls
         private bool dragging;
         private Point dragOrigin;
         private double dragValue;
-
-        /// <summary>A click must not nudge a score, so a drag only starts past this.</summary>
-        private const double DragSlop = 4;
 
         public event EventHandler<PlotPoint> PointActivated;
 
@@ -114,11 +109,22 @@ namespace PlayniteCharts.Controls
         private static void OnModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var c = (BubblePlotControl)d;
-            c.labelCache.Clear();
-            c.rampBrushes = null;
-            c.shadowCache.Clear();
+            c.ResetCaches();
             c.hovered = null;
             c.Redraw();
+        }
+
+        /// <summary>
+        /// Drops everything measured or frozen for one model on one surface. Both
+        /// halves depend on the theme, not just the data: the ink colour is baked
+        /// into each measured label, and the ramp is stepped for the surface it is
+        /// drawn on.
+        /// </summary>
+        private void ResetCaches()
+        {
+            labelCache.Clear();
+            shadowCache.Clear();
+            rampBrushes = null;
         }
 
         protected override void OnRenderSizeChanged(SizeChangedInfo info)
@@ -130,11 +136,7 @@ namespace PlayniteCharts.Controls
         /// <summary>Forces the palette to be re-picked, e.g. after a theme switch.</summary>
         public void InvalidateTheme()
         {
-            // the ink colour is baked into each measured label, and the ramp is
-            // stepped for the surface it is drawn on
-            rampBrushes = null;
-            labelCache.Clear();
-            shadowCache.Clear();
+            ResetCaches();
             theme = null;
             Redraw();
         }
@@ -154,6 +156,20 @@ namespace PlayniteCharts.Controls
         }
 
         // ---------------------------------------------------------------- drawing
+
+        /// <summary>
+        /// Fill opacity by how crowded the panel is - a few hundred marks read best
+        /// solid, a few thousand only read at all if they are translucent.
+        /// </summary>
+        private static double MarkOpacity(int count)
+        {
+            if (count <= 150)
+            {
+                return 0.9;
+            }
+
+            return count >= 1200 ? 0.5 : 0.9 - (count - 150) * 0.4 / 1050;
+        }
 
         private void Redraw()
         {
@@ -282,9 +298,6 @@ namespace PlayniteCharts.Controls
 
         // ---------------------------------------------------------------- legend
 
-        private const double SwatchSize = 13;
-        private const double RowHeight = 19;
-
         private IEnumerable<string> LegendLines(PlotModel m)
         {
             if (m.ColorScale != null)
@@ -316,11 +329,8 @@ namespace PlayniteCharts.Controls
             }
         }
 
-        /// <summary>
-        /// A mark's fill: a fixed palette slot for a categorical colour column, a
-        /// point on the ramp for a numeric one. Ramp brushes are cached per model
-        /// because a 5000-game plot would otherwise freeze one Brush per bubble.
-        /// </summary>
+        /// <summary>A mark's fill: a fixed palette slot for a categorical colour
+        /// column, a point on the ramp for a numeric one.</summary>
         private Brush Fill(PlotModel m, PlotTheme t, PlotPoint p)
         {
             if (m.ColorGradient == null)
@@ -328,9 +338,15 @@ namespace PlayniteCharts.Controls
                 return t.SeriesBrush(p.ColorSlot);
             }
 
-            // 64 steps is finer than the eye resolves on a 12px mark and turns the
-            // ramp into a small fixed set of frozen brushes
-            var step = (int)Math.Round(p.ColorT * (RampSteps - 1));
+            var steps = RampBrushes(m, t);
+            var i = (int)Math.Round(p.ColorT * (RampSteps - 1));
+            return steps[i < 0 ? 0 : i > RampSteps - 1 ? RampSteps - 1 : i];
+        }
+
+        /// <summary>The ramp as a handful of frozen brushes: a 5000-game plot would
+        /// otherwise freeze one Brush per bubble.</summary>
+        private Brush[] RampBrushes(PlotModel m, PlotTheme t)
+        {
             if (rampBrushes == null)
             {
                 var ramp = ColorRamp.Get(m.ColorRampId);
@@ -343,7 +359,7 @@ namespace PlayniteCharts.Controls
                 }
             }
 
-            return rampBrushes[step < 0 ? 0 : step > RampSteps - 1 ? RampSteps - 1 : step];
+            return rampBrushes;
         }
 
         private double MeasureLegend(PlotModel m, PlotTheme t)
@@ -436,9 +452,6 @@ namespace PlayniteCharts.Controls
             }
         }
 
-        private const double GradientBarWidth = 13;
-        private const double GradientBarHeight = 96;
-
         /// <summary>
         /// The key for a ramped colour column: the ramp itself as a bar, with the
         /// ends and the middle labelled. A swatch list would be a lie here - the
@@ -446,8 +459,7 @@ namespace PlayniteCharts.Controls
         /// </summary>
         private double DrawGradientKey(DrawingContext dc, PlotModel m, PlotTheme t, Rect area, double y)
         {
-            var ramp = ColorRamp.Get(m.ColorRampId);
-            var stops = ramp.Stops(t.IsDark);
+            var stops = ColorRamp.Get(m.ColorRampId).Stops(t.IsDark);
             var bar = new Rect(area.Left, y + 2, GradientBarWidth, GradientBarHeight);
 
             // top of the bar is the top of the range, so it reads with the y axis
@@ -783,9 +795,6 @@ namespace PlayniteCharts.Controls
             }
         }
 
-        private const double TitleSize = 11;
-        private const double TitleGap = 4;
-
         /// <summary>
         /// Names beside the bubbles, best-effort. Each label is tried level with its
         /// bubble first, then one line up, then one line down; if all three collide
@@ -805,7 +814,7 @@ namespace PlayniteCharts.Controls
             var line = TitleSize + 3;
             foreach (var p in order)
             {
-                var label = Label(p, t);
+                var label = Cached(labelCache, p, t.InkBrush);
                 if (label.Width > plotRect.Width / 2)
                 {
                     continue;
@@ -855,31 +864,20 @@ namespace PlayniteCharts.Controls
 
                 // a one-pixel surface shadow keeps the name readable over a bubble
                 var origin = box.Location;
-                dc.DrawText(Shadow(p, t), new Point(origin.X + 1, origin.Y + 1));
+                dc.DrawText(Cached(shadowCache, p, t.SurfaceBrush), new Point(origin.X + 1, origin.Y + 1));
                 dc.DrawText(label, origin);
             }
         }
 
-        private FormattedText Label(PlotPoint p, PlotTheme t)
+        private FormattedText Cached(Dictionary<PlotPoint, FormattedText> cache, PlotPoint p, Brush ink)
         {
-            if (!labelCache.TryGetValue(p, out var label))
+            if (!cache.TryGetValue(p, out var text))
             {
-                label = Text(p.Game?.Name ?? string.Empty, t.InkBrush, TitleSize);
-                labelCache[p] = label;
+                text = Text(p.Game?.Name ?? string.Empty, ink, TitleSize);
+                cache[p] = text;
             }
 
-            return label;
-        }
-
-        private FormattedText Shadow(PlotPoint p, PlotTheme t)
-        {
-            if (!shadowCache.TryGetValue(p, out var shadow))
-            {
-                shadow = Text(p.Game?.Name ?? string.Empty, t.SurfaceBrush, TitleSize);
-                shadowCache[p] = shadow;
-            }
-
-            return shadow;
+            return text;
         }
 
         /// <summary>The rail the mark is sliding on, so the constraint is visible.</summary>
@@ -906,22 +904,14 @@ namespace PlayniteCharts.Controls
             var name = Ellipsize(p.Game?.Name ?? string.Empty, t.InkBrush, 12, 260);
             var value = Text($"{dragField.Name}: {dragField.Format(dragValue)}", t.InkMutedBrush, 11);
             const double pad = 8;
-            var w = Math.Max(name.Width, value.Width) + pad * 2;
-            var h = name.Height + value.Height + pad * 2 + 2;
+            var size = new Size(Math.Max(name.Width, value.Width) + pad * 2,
+                name.Height + value.Height + pad * 2 + 2);
 
-            // stay inside the plot: the legend to the right must stay readable
-            var x = c.X + p.Radius + 12;
-            if (x + w > plotRect.Right)
-            {
-                x = c.X - p.Radius - 12 - w;
-            }
-
-            x = Math.Max(2, x);
-            var y = Math.Max(plotRect.Top, Math.Min(plotRect.Bottom - h, c.Y - h / 2));
-            var box = new Rect(x, y, w, h);
+            // inside the plot, so the legend to the right stays readable
+            var box = PlaceCard(c, p.Radius, size, plotRect);
             dc.DrawRoundedRectangle(t.SurfaceBrush, new Pen(t.InkMutedBrush, 1), box, 4, 4);
-            dc.DrawText(name, new Point(x + pad, y + pad));
-            dc.DrawText(value, new Point(x + pad, y + pad + name.Height + 2));
+            dc.DrawText(name, new Point(box.X + pad, box.Y + pad));
+            dc.DrawText(value, new Point(box.X + pad, box.Y + pad + name.Height + 2));
         }
 
         private void DrawTooltip(DrawingContext dc, PlotModel m, PlotTheme t, PlotPoint p, Point anchor)
@@ -975,29 +965,44 @@ namespace PlayniteCharts.Controls
             var keyW = keys.Count > 0 ? keys.Max(k => k.Width) : 0;
             var valW = vals.Count > 0 ? vals.Max(v => v.Width) : 0;
             const double pad = 9, gap = 12;
-            var w = Math.Max(title.Width, keyW + gap + valW) + pad * 2;
-            var h = title.Height + 4 + keys.Sum(k => k.Height + 2) + pad * 2;
+            var size = new Size(Math.Max(title.Width, keyW + gap + valW) + pad * 2,
+                title.Height + 4 + keys.Sum(k => k.Height + 2) + pad * 2);
 
-            // keep the card inside the control, flipping around the cursor as needed
-            var x = anchor.X + p.Radius + 12;
-            var y = anchor.Y - h / 2;
-            if (x + w > ActualWidth - 4) x = anchor.X - p.Radius - 12 - w;
-            if (x < 4) x = 4;
-            if (y + h > ActualHeight - 4) y = ActualHeight - 4 - h;
-            if (y < 4) y = 4;
-
-            var card = new Rect(x, y, w, h);
+            // the whole control, not just the plot: a card by a mark near the right
+            // edge may sit over the legend rather than be pushed off the axis
+            var card = PlaceCard(anchor, p.Radius, size,
+                new Rect(4, 4, Math.Max(1, ActualWidth - 8), Math.Max(1, ActualHeight - 8)));
             dc.DrawRoundedRectangle(t.SurfaceBrush, new Pen(t.InkMutedBrush, 1), card, 4, 4);
 
-            var ty = y + pad;
-            dc.DrawText(title, new Point(x + pad, ty));
+            var ty = card.Y + pad;
+            dc.DrawText(title, new Point(card.X + pad, ty));
             ty += title.Height + 4;
             for (var i = 0; i < keys.Count; i++)
             {
-                dc.DrawText(keys[i], new Point(x + pad, ty));
-                dc.DrawText(vals[i], new Point(x + pad + keyW + gap, ty));
+                dc.DrawText(keys[i], new Point(card.X + pad, ty));
+                dc.DrawText(vals[i], new Point(card.X + pad + keyW + gap, ty));
                 ty += keys[i].Height + 2;
             }
+        }
+
+        /// <summary>
+        /// Puts a card beside a mark: to its right, flipped to the left if that
+        /// would overflow, then nudged so the whole card stays inside the bounds.
+        /// </summary>
+        private static Rect PlaceCard(Point anchor, double radius, Size size, Rect bounds)
+        {
+            const double gap = 12;
+            var x = anchor.X + radius + gap;
+            if (x + size.Width > bounds.Right)
+            {
+                x = anchor.X - radius - gap - size.Width;
+            }
+
+            return new Rect(
+                Math.Max(bounds.Left, Math.Min(bounds.Right - size.Width, x)),
+                Math.Max(bounds.Top, Math.Min(bounds.Bottom - size.Height, anchor.Y - size.Height / 2)),
+                size.Width,
+                size.Height);
         }
 
         // ---------------------------------------------------------------- helpers

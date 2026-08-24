@@ -40,8 +40,6 @@ namespace PlayniteCharts.Model
         /// </summary>
         public Func<Game, IEnumerable<string>> GetCategories { get; set; }
 
-        public bool IsMultiValued => GetCategories != null;
-
         /// <summary>Human text for tooltips. Falls back to the other two.</summary>
         public Func<Game, string> GetDisplay { get; set; }
 
@@ -148,49 +146,41 @@ namespace PlayniteCharts.Model
             return byId.TryGetValue(id, out var f) ? f : null;
         }
 
-        public static List<GameColumn> Continuous => All.Where(f => f.IsContinuous).ToList();
+        /// <summary>Anything an axis or the size channel can carry.</summary>
+        public static readonly IReadOnlyList<GameColumn> Continuous =
+            All.Where(f => f.IsContinuous).ToList();
 
-        public static List<GameColumn> Discrete => All.Where(f => f.IsDiscrete && !f.HoverOnly).ToList();
+        /// <summary>Anything the shape channel can carry.</summary>
+        public static readonly IReadOnlyList<GameColumn> Discrete =
+            All.Where(f => f.IsDiscrete && !f.HoverOnly).ToList();
 
         /// <summary>Anything colour can encode: a category gets a palette slot, a
         /// number or a date gets a position on a ramp. Discrete first, because a
         /// category is what colour is usually for.</summary>
-        public static List<GameColumn> Colorable =>
-            Discrete.Concat(All.Where(f => f.IsContinuous)).ToList();
+        public static readonly IReadOnlyList<GameColumn> Colorable =
+            Discrete.Concat(Continuous).ToList();
 
         private static string First<T>(IEnumerable<T> items) where T : DatabaseObject
         {
-            if (items == null)
-            {
-                return null;
-            }
-
-            var first = items.Where(i => !string.IsNullOrEmpty(i.Name))
-                .OrderBy(i => i.Name, StringComparer.CurrentCultureIgnoreCase).FirstOrDefault();
-            return first?.Name;
+            return Names(items).OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase).FirstOrDefault();
         }
 
+        /// <summary>Comma-separated, empties dropped; null when nothing is left.</summary>
         private static string JoinNames(IEnumerable<string> names)
         {
-            if (names == null)
-            {
-                return null;
-            }
-
-            var list = names.Where(n => !string.IsNullOrEmpty(n)).ToList();
+            var list = (names ?? Enumerable.Empty<string>())
+                .Where(n => !string.IsNullOrEmpty(n)).ToList();
             return list.Count == 0 ? null : string.Join(", ", list);
         }
 
         private static string Join<T>(IEnumerable<T> items) where T : DatabaseObject
         {
-            if (items == null)
-            {
-                return null;
-            }
+            return JoinNames(Names(items).OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase));
+        }
 
-            var names = items.Select(i => i.Name).Where(n => !string.IsNullOrEmpty(n))
-                .OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase).ToList();
-            return names.Count == 0 ? null : string.Join(", ", names);
+        private static IEnumerable<string> Names<T>(IEnumerable<T> items) where T : DatabaseObject
+        {
+            return (items ?? Enumerable.Empty<T>()).Select(i => i.Name).Where(n => !string.IsNullOrEmpty(n));
         }
 
         private static GameColumn Num(string id, string name, Func<Game, double?> get,
@@ -220,7 +210,7 @@ namespace PlayniteCharts.Model
             }
 
             f.Quantize = v => Math.Max(0, Math.Min(100, Math.Round(v)));
-            f.SetNumber = (g, v) => set(g, (int)Math.Max(0, Math.Min(100, Math.Round(v))));
+            f.SetNumber = (g, v) => set(g, (int)f.Quantize(v));
             return f;
         }
 
@@ -306,8 +296,7 @@ namespace PlayniteCharts.Model
             where T : DatabaseObject
         {
             var f = Cat(id, name, g => First(get(g)) ?? "(none)", g => Join(get(g)));
-            f.GetCategories = g => (get(g) ?? Enumerable.Empty<T>())
-                .Select(i => i.Name).Where(n => !string.IsNullOrEmpty(n));
+            f.GetCategories = g => Names(get(g));
             return f;
         }
 

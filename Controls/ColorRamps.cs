@@ -27,18 +27,13 @@ namespace PlayniteCharts.Controls
         public string Id { get; private set; }
         public string Name { get; private set; }
 
-        /// <summary>True for the two-poles-and-a-neutral ramps, which is worth
-        /// knowing: they read as "which side of the middle", not "how much".</summary>
-        public bool IsDiverging { get; private set; }
-
         private readonly Color[] light;
         private readonly Color[] dark;
 
-        private ColorRamp(string id, string name, bool diverging, string[] lightHex, string[] darkHex)
+        private ColorRamp(string id, string name, string[] lightHex, string[] darkHex)
         {
             Id = id;
             Name = name;
-            IsDiverging = diverging;
             light = lightHex.Select(Parse).ToArray();
             dark = darkHex.Select(Parse).ToArray();
         }
@@ -114,35 +109,35 @@ namespace PlayniteCharts.Controls
         /// </summary>
         public static readonly IReadOnlyList<ColorRamp> All = new List<ColorRamp>
         {
-            new ColorRamp("blue", "Blue", false,
+            new ColorRamp("blue", "Blue",
                 new[] { "#a9cdf0", "#6ea9e0", "#3d7fc4", "#1e5794", "#0b3565" },
                 new[] { "#2b5f8f", "#3f82bd", "#5da5e0", "#8cc6f5", "#cfe9ff" }),
 
-            new ColorRamp("green", "Green", false,
+            new ColorRamp("green", "Green",
                 new[] { "#aed9a8", "#77bd72", "#45914a", "#256e2c", "#0e4a1d" },
                 new[] { "#2c6b3c", "#3f9152", "#5cb56d", "#8ed492", "#cdeecd" }),
 
-            new ColorRamp("orange", "Orange", false,
+            new ColorRamp("orange", "Orange",
                 new[] { "#f7c79b", "#f0a05c", "#d97a25", "#ab5710", "#6f3306" },
                 new[] { "#8a4d12", "#b56d1c", "#d98f33", "#f0b571", "#ffdcb4" }),
 
-            new ColorRamp("purple", "Purple", false,
+            new ColorRamp("purple", "Purple",
                 new[] { "#cbb4e8", "#a884d4", "#8055b8", "#5b2f8c", "#3a1560" },
                 new[] { "#55307f", "#7549a8", "#9a6dcc", "#bd97e3", "#e2d2f5" }),
 
-            new ColorRamp("redblue", "Red - grey - blue", true,
+            new ColorRamp("redblue", "Red - grey - blue",
                 new[] { "#a5232a", "#d4574c", "#e59182", "#b8b8b8", "#84a8cc", "#4380b8", "#12518f" },
                 new[] { "#d84a4f", "#e8807a", "#d9a9a2", "#9aa0aa", "#8fb6d8", "#4f95d4", "#2f79c4" }),
 
-            new ColorRamp("orangeteal", "Orange - grey - teal", true,
+            new ColorRamp("orangeteal", "Orange - grey - teal",
                 new[] { "#a85508", "#d67f24", "#e8ab6b", "#b8b8b8", "#78b4ac", "#2f8a7f", "#0d5c55" },
                 new[] { "#d67f1c", "#e8a54f", "#d4bb99", "#9aa0aa", "#84c6bd", "#35a394", "#1f8578" }),
 
-            new ColorRamp("viridis", "Viridis", false,
+            new ColorRamp("viridis", "Viridis",
                 new[] { "#440154", "#414487", "#2a788e", "#22a884", "#7ad151", "#c8e020" },
                 new[] { "#4b3f8f", "#3b6b96", "#2a978c", "#4ec06e", "#9fdb4a", "#fde725" }),
 
-            new ColorRamp("rainbow", "Rainbow (ROYGBIV)", false,
+            new ColorRamp("rainbow", "Rainbow (ROYGBIV)",
                 new[] { "#d31b1b", "#e07000", "#c9a400", "#1f9d2f", "#1f5fd6", "#4b30b0", "#8b32d6" },
                 new[] { "#ff4d4d", "#ff9a2b", "#ffe03d", "#4ede5a", "#4d94ff", "#8f7aff", "#c46bff" })
         };

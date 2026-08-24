@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Playnite.SDK;
 using Playnite.SDK.Plugins;
+using PlayniteCharts.Model;
 using PlayniteCharts.ViewModels;
 using PlayniteCharts.Views;
 
@@ -31,8 +32,7 @@ namespace PlayniteCharts
                 var loaded = LoadPluginSettings<ChartsSettings>();
                 if (loaded?.Plots != null && loaded.Plots.Count > 0)
                 {
-                    // an older file kept these on each plot
-                    loaded.Migrate();
+                    loaded.View = loaded.View ?? new ViewSettings();
                     return loaded;
                 }
             }

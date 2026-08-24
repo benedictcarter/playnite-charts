@@ -24,10 +24,10 @@ namespace PlayniteCharts.Model
         public bool IsInert => !Lower.HasValue && !Upper.HasValue && (Excluded == null || Excluded.Count == 0);
 
         /// <summary>
-        /// <paramref name="missingAsZero"/> is the plot's own setting: when it is on
+        /// <paramref name="missingAsZero"/> mirrors the view setting: when it is on
         /// the plot draws a missing number at 0, so the filter has to agree - reading
         /// it as "no value" would quietly delete the bubbles the plot is showing.
-        /// Dates are excluded, exactly as in PlotModel.
+        /// Dates are exempt, exactly as in PlotModel.
         /// </summary>
         public bool Passes(GameColumn field, Game game, bool missingAsZero)
         {
@@ -65,14 +65,17 @@ namespace PlayniteCharts.Model
             foreach (var value in field.Categories(game))
             {
                 any = true;
-                if (!Excluded.Contains(value, StringComparer.CurrentCultureIgnoreCase))
+                if (!IsExcluded(value))
                 {
                     return true;
                 }
             }
 
-            return !any && !Excluded.Contains(NoValueKey, StringComparer.CurrentCultureIgnoreCase);
+            return !any && !IsExcluded(NoValueKey);
         }
+
+        private bool IsExcluded(string value) =>
+            Excluded != null && Excluded.Contains(value, StringComparer.CurrentCultureIgnoreCase);
 
         public FilterConfig Clone()
         {
@@ -83,27 +86,6 @@ namespace PlayniteCharts.Model
                 Upper = Upper,
                 Excluded = new List<string>(Excluded ?? new List<string>())
             };
-        }
-    }
-
-    internal static class FilterListExtensions
-    {
-        public static bool Contains(this List<string> list, string value, StringComparer comparer)
-        {
-            if (list == null)
-            {
-                return false;
-            }
-
-            foreach (var item in list)
-            {
-                if (comparer.Equals(item, value))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

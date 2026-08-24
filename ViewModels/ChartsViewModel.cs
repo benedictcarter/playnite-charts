@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
+using System.Windows.Threading;
 using Playnite.SDK;
 using Playnite.SDK.Models;
 using PlayniteCharts.Controls;
@@ -44,22 +46,22 @@ namespace PlayniteCharts.ViewModels
         private bool showTable;
         private bool tableDirty = true;
         private IList<Game> domainSource = new List<Game>();
-        private readonly System.Windows.Threading.DispatcherTimer filterDebounce;
+        private readonly DispatcherTimer filterDebounce;
 
         public ObservableCollection<PlotConfig> Plots { get; }
 
         /// <summary>The ramps a numeric colour column can be drawn with.</summary>
-        public IReadOnlyList<Controls.ColorRamp> ColorRamps => Controls.ColorRamp.All;
+        public IReadOnlyList<ColorRamp> ColorRamps => ColorRamp.All;
 
         /// <summary>Filters, hover and appearance: shared by every plot, so that
         /// switching visualisation explores the same set of games.</summary>
         public ViewSettings View => plugin.Settings.View;
 
-        public List<GameColumn> XFields { get; }
-        public List<GameColumn> YFields { get; }
-        public List<GameColumn> SizeFields { get; }
-        public List<GameColumn> ColorFields { get; }
-        public List<GameColumn> ShapeFields { get; }
+        public IReadOnlyList<GameColumn> XFields => GameColumns.Continuous;
+        public IReadOnlyList<GameColumn> YFields => GameColumns.Continuous;
+        public IReadOnlyList<GameColumn> SizeFields { get; }
+        public IReadOnlyList<GameColumn> ColorFields { get; }
+        public IReadOnlyList<GameColumn> ShapeFields { get; }
         public ObservableCollection<HoverOption> HoverOptions { get; } = new ObservableCollection<HoverOption>();
 
         /// <summary>The filter rows, rebuilt when the filter set or the library changes.</summary>
@@ -86,12 +88,9 @@ namespace PlayniteCharts.ViewModels
             this.plugin = plugin;
             this.api = api;
 
-            var none = new GameColumn { Id = string.Empty, Name = "(none)" };
-            XFields = GameColumns.Continuous;
-            YFields = GameColumns.Continuous;
-            SizeFields = new[] { none }.Concat(GameColumns.Continuous).ToList();
-            ColorFields = new[] { none }.Concat(GameColumns.Colorable).ToList();
-            ShapeFields = new[] { none }.Concat(GameColumns.Discrete).ToList();
+            SizeFields = Optional(GameColumns.Continuous);
+            ColorFields = Optional(GameColumns.Colorable);
+            ShapeFields = Optional(GameColumns.Discrete);
 
             foreach (var f in GameColumns.All.OrderBy(f => f.Group).ThenBy(f => f.Name))
             {
@@ -104,7 +103,7 @@ namespace PlayniteCharts.ViewModels
 
             // a slider drag is a stream of changes; rebuilding the whole plot on
             // every one of them would make the handle stutter on a big library
-            filterDebounce = new System.Windows.Threading.DispatcherTimer
+            filterDebounce = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(150)
             };
@@ -142,6 +141,13 @@ namespace PlayniteCharts.ViewModels
             {
                 o.PropertyChanged += OnHoverOptionChanged;
             }
+        }
+
+        /// <summary>The channel can be left empty, so its list starts with "(none)".</summary>
+        private static IReadOnlyList<GameColumn> Optional(IEnumerable<GameColumn> fields)
+        {
+            var none = new GameColumn { Id = string.Empty, Name = "(none)" };
+            return new[] { none }.Concat(fields).ToList();
         }
 
         public PlotConfig SelectedPlot
@@ -253,7 +259,7 @@ namespace PlayniteCharts.ViewModels
                 return;
             }
 
-            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var sw = Stopwatch.StartNew();
             try
             {
                 var games = CurrentGames();
@@ -318,7 +324,7 @@ namespace PlayniteCharts.ViewModels
                 Add(m.XField);
                 Add(m.YField);
                 Add(m.SizeField);
-                Add(m.ColorScale?.Field);
+                Add(m.ColorScale?.Field ?? m.ColorGradient?.Field);
                 Add(m.ShapeScale?.Field);
                 m.HoverFields.ForEach(Add);
 
@@ -360,7 +366,7 @@ namespace PlayniteCharts.ViewModels
             return games.Where(g => active.All(pair => pair.Key.Passes(pair.Value, g, zeros))).ToList();
         }
 
-        /// <summary>Rebuilds the filter rows from the selected plot's saved filters.</summary>
+        /// <summary>Rebuilds the filter rows from the shared view settings.</summary>
         private void SyncFilters()
         {
             Filters.Clear();
@@ -493,7 +499,6 @@ namespace PlayniteCharts.ViewModels
             }
 
             plugin.Settings.Plots = Plots.ToList();
-            plugin.Settings.View = View;
         }
 
         private void OnPlotChanged(object sender, PropertyChangedEventArgs e)
@@ -543,17 +548,20 @@ namespace PlayniteCharts.ViewModels
             }
 
             suspendRebuild = false;
-            // the assignment itself notifies, and that already rebuilds
-            View.HoverFieldIds = HoverOptions.Where(o => o.IsChecked).Select(o => o.Field.Id).ToList();
+            PushHoverSelection();
         }
 
         private void OnHoverOptionChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (suspendRebuild || e.PropertyName != nameof(HoverOption.IsChecked))
+            if (!suspendRebuild && e.PropertyName == nameof(HoverOption.IsChecked))
             {
-                return;
+                PushHoverSelection();
             }
+        }
 
+        /// <summary>The assignment notifies, and that is what rebuilds the plot.</summary>
+        private void PushHoverSelection()
+        {
             View.HoverFieldIds = HoverOptions.Where(o => o.IsChecked).Select(o => o.Field.Id).ToList();
         }
 
