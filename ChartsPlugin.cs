@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -33,6 +34,11 @@ namespace PlayniteCharts
                 if (loaded?.Plots != null && loaded.Plots.Count > 0)
                 {
                     loaded.View = loaded.View ?? new ViewSettings();
+
+                    // repairs a settings file already grown by the Json.NET
+                    // list-append behaviour described in ViewSettings
+                    loaded.View.HoverFieldIds = loaded.View.HoverFieldIds
+                        .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                     return loaded;
                 }
             }

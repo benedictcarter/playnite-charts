@@ -1,8 +1,7 @@
-# Charts for Playnite — working notes
+# Charts for Playnite - working notes
 
 A Playnite extension (GenericPlugin + a `View` sidebar item): configurable bubble
-plots over the game table. See [README.md](README.md),
-[LESSONS_LEARNT.md](LESSONS_LEARNT.md), [TODO.md](TODO.md), [DONE.md](DONE.md).
+plots over the game table. See [README.md](README.md) and [DONE.md](DONE.md).
 
 ## This repo is self-contained
 
@@ -14,7 +13,7 @@ AppDomain, so there is nothing to reference at compile time.
 The Playnite fork this was extracted from lives at
 <https://github.com/benedictcarter/playnite_charts> (branch `charts`) and keeps the
 fork-era history. Nothing in `source/` was ever modified, so there is no core
-change to send upstream — an extension reaches users through a manifest PR to
+change to send upstream - an extension reaches users through a manifest PR to
 [PlayniteAddonDatabase](https://github.com/JosefNemec/PlayniteAddonDatabase), not
 through a PR to Playnite.
 
@@ -34,8 +33,7 @@ dev/deploy-extension.sh          # restore + build + close Playnite + copy + res
 dev/render.sh <out-dir>          # offscreen PNGs of every chart state, no Playnite
 ```
 
-Always render and look at the output after touching colour or layout — see
-LESSONS_LEARNT.md.
+Always render and look at the output after touching colour or layout.
 
 ## Style
 

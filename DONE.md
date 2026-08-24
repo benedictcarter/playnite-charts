@@ -1,6 +1,6 @@
 # DONE
 
-## 2026-08-24 — UAT round 1
+## 2026-08-24 - UAT round 1
 - Top-right toolbar cleared: "Refresh" and the "Table" toggle are gone, and the
   table view with them (Playnite's own list view already shows the rows as text).
 - "Use library filter" moved down under FILTERS, where the rest of the filtering is.
@@ -8,7 +8,7 @@
   empty box under "New", scrolling only past ~15 plots.
 - Saved plots reorder by drag and drop.
 
-## 2026-08-24 — extracted into its own repo
+## 2026-08-24 - extracted into its own repo
 - The extension began life in a fork of Playnite (`benedictcarter/playnite_charts`,
   branch `charts`). Nothing under `source/` was ever modified: the extension only
   ever referenced the SDK from NuGet, so the fork was not needed to build it.
@@ -20,7 +20,7 @@
   code does not already say. Net ~140 fewer lines, no behaviour change beyond one
   fix (a numeric colour column was missing from the table view).
 
-## 2026-08-24 — bubble plot
+## 2026-08-24 - bubble plot
 Built as a Playnite extension, not a core change: plugin sidebar items of type
 `View` already sort directly below Statistics, so the requested placement needed
 nothing from upstream.
@@ -39,7 +39,7 @@ nothing from upstream.
 - Table view as text relief for the low-contrast palette slots
 - Offscreen render harness (`DevHarness`)
 
-## 2026-08-24 — fork setup (superseded by the extraction above)
+## 2026-08-24 - fork setup (superseded by the extraction above)
 - Cloned `JosefNemec/Playnite`, forked to `benedictcarter/playnite_charts` via the
   fork API so it sits inside upstream's fork network and can raise PRs.
 - Added the `ManagedDesktopBuildTools` workload and the 4.6.2 targeting pack to VS
