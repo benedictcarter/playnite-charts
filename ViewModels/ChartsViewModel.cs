@@ -48,6 +48,10 @@ namespace PlayniteCharts.ViewModels
 
         public ObservableCollection<PlotConfig> Plots { get; }
 
+        /// <summary>Filters, hover and appearance: shared by every plot, so that
+        /// switching visualisation explores the same set of games.</summary>
+        public ViewSettings View => plugin.Settings.View;
+
         public List<GameColumn> XFields { get; }
         public List<GameColumn> YFields { get; }
         public List<GameColumn> SizeFields { get; }
@@ -55,7 +59,7 @@ namespace PlayniteCharts.ViewModels
         public List<GameColumn> ShapeFields { get; }
         public ObservableCollection<HoverOption> HoverOptions { get; } = new ObservableCollection<HoverOption>();
 
-        /// <summary>The filter rows of the selected plot, rebuilt when it changes.</summary>
+        /// <summary>The filter rows, rebuilt when the filter set or the library changes.</summary>
         public ObservableCollection<FilterViewModel> Filters { get; } = new ObservableCollection<FilterViewModel>();
 
         /// <summary>Columns worth filtering on: free text and the game name are not.</summary>
@@ -108,6 +112,7 @@ namespace PlayniteCharts.ViewModels
                 Rebuild();
             };
 
+            View.PropertyChanged += OnViewChanged;
             Plots = new ObservableCollection<PlotConfig>(plugin.Settings.Plots);
             Plots.CollectionChanged += OnPlotsChanged;
             foreach (var p in Plots)
@@ -124,8 +129,8 @@ namespace PlayniteCharts.ViewModels
                 o => (o as PlotConfig ?? selectedPlot) != null);
             DeletePlotCommand = new RelayCommand<object>(o => Delete(o as PlotConfig ?? selectedPlot));
             RefreshCommand = new RelayCommand<object>(_ => Refresh());
-            AllHoverCommand = new RelayCommand<object>(_ => SetAllHover(true), _ => SelectedPlot != null);
-            NoHoverCommand = new RelayCommand<object>(_ => SetAllHover(false), _ => SelectedPlot != null);
+            AllHoverCommand = new RelayCommand<object>(_ => SetAllHover(true));
+            NoHoverCommand = new RelayCommand<object>(_ => SetAllHover(false));
             AddFilterCommand = new RelayCommand<object>(o => AddFilter(o as GameColumn));
             RemoveFilterCommand = new RelayCommand<object>(o => RemoveFilter(o as FilterViewModel));
             ClearFiltersCommand = new RelayCommand<object>(_ => ClearFilters(), _ => Filters.Count > 0);
@@ -148,8 +153,6 @@ namespace PlayniteCharts.ViewModels
 
                 SetValue(ref selectedPlot, value);
                 plugin.Settings.LastSelectedPlotId = value?.Id ?? Guid.Empty;
-                SyncFilters();
-                SyncHoverOptions();
                 Rebuild();
                 OnPropertyChanged(nameof(HasPlot));
             }
@@ -264,7 +267,7 @@ namespace PlayniteCharts.ViewModels
                         : $"Filtered - {shown.Count:N0} of {domainSource.Count:N0} games");
                 games = shown;
 
-                Model = PlotModel.Build(selectedPlot, games, domainSource,
+                Model = PlotModel.Build(selectedPlot, View, games, domainSource,
                     PlotTheme.SeriesCapacity, MarkShapes.Count);
 
                 // one row per game x one string per column, and some of those
@@ -339,7 +342,7 @@ namespace PlayniteCharts.ViewModels
         /// </summary>
         private IList<Game> ApplyFilters(IList<Game> games)
         {
-            var active = (selectedPlot.Filters ?? new List<FilterConfig>())
+            var active = (View.Filters ?? new List<FilterConfig>())
                 .Where(f => !f.IsInert)
                 .Select(f => new KeyValuePair<FilterConfig, GameColumn>(f, GameColumns.Get(f.FieldId)))
                 .Where(pair => pair.Value != null)
@@ -350,7 +353,7 @@ namespace PlayniteCharts.ViewModels
                 return games;
             }
 
-            var zeros = selectedPlot.MissingAsZero;
+            var zeros = View.MissingAsZero;
             return games.Where(g => active.All(pair => pair.Key.Passes(pair.Value, g, zeros))).ToList();
         }
 
@@ -358,18 +361,18 @@ namespace PlayniteCharts.ViewModels
         private void SyncFilters()
         {
             Filters.Clear();
-            if (selectedPlot?.Filters == null)
+            if (View.Filters == null)
             {
                 return;
             }
 
             // a filter on a column that no longer exists is dropped rather than kept
             // as a row that cannot be edited
-            selectedPlot.Filters.RemoveAll(f => GameColumns.Get(f.FieldId) == null);
-            foreach (var f in selectedPlot.Filters)
+            View.Filters.RemoveAll(f => GameColumns.Get(f.FieldId) == null);
+            foreach (var f in View.Filters)
             {
                 Filters.Add(new FilterViewModel(GameColumns.Get(f.FieldId), f, domainSource,
-                    selectedPlot.MissingAsZero, OnFilterChanged));
+                    View.MissingAsZero, OnFilterChanged));
             }
 
             OnPropertyChanged(nameof(HasFilters));
@@ -383,29 +386,29 @@ namespace PlayniteCharts.ViewModels
 
         private void AddFilter(GameColumn field)
         {
-            if (field == null || selectedPlot == null)
+            if (field == null)
             {
                 return;
             }
 
-            if (selectedPlot.Filters.Any(f => string.Equals(f.FieldId, field.Id, StringComparison.OrdinalIgnoreCase)))
+            if (View.Filters.Any(f => string.Equals(f.FieldId, field.Id, StringComparison.OrdinalIgnoreCase)))
             {
                 return;
             }
 
-            selectedPlot.Filters.Add(new FilterConfig { FieldId = field.Id });
+            View.Filters.Add(new FilterConfig { FieldId = field.Id });
             SyncFilters();
             Persist();
         }
 
         private void RemoveFilter(FilterViewModel filter)
         {
-            if (filter == null || selectedPlot == null)
+            if (filter == null)
             {
                 return;
             }
 
-            selectedPlot.Filters.Remove(filter.Config);
+            View.Filters.Remove(filter.Config);
             SyncFilters();
             Persist();
             Rebuild();
@@ -413,12 +416,12 @@ namespace PlayniteCharts.ViewModels
 
         private void ClearFilters()
         {
-            if (selectedPlot == null || selectedPlot.Filters.Count == 0)
+            if (View.Filters.Count == 0)
             {
                 return;
             }
 
-            selectedPlot.Filters.Clear();
+            View.Filters.Clear();
             SyncFilters();
             Persist();
             Rebuild();
@@ -487,6 +490,7 @@ namespace PlayniteCharts.ViewModels
             }
 
             plugin.Settings.Plots = Plots.ToList();
+            plugin.Settings.View = View;
         }
 
         private void OnPlotChanged(object sender, PropertyChangedEventArgs e)
@@ -507,27 +511,28 @@ namespace PlayniteCharts.ViewModels
             }
             else
             {
-                // the zero substitution moves the bottom of every numeric range,
-                // so the sliders have to be rebuilt, not just re-applied
-                if (e.PropertyName == nameof(PlotConfig.MissingAsZero))
-                {
-                    SyncFilters();
-                }
-
                 Rebuild();
             }
 
             Persist();
         }
 
+        private void OnViewChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // the zero substitution moves the bottom of every numeric range, so the
+            // sliders have to be rebuilt rather than just re-applied
+            if (e.PropertyName == nameof(ViewSettings.MissingAsZero))
+            {
+                SyncFilters();
+            }
+
+            Rebuild();
+            Persist();
+        }
+
         /// <summary>Ticking 25 boxes one at a time (and rebuilding each time) is nobody's idea of fun.</summary>
         private void SetAllHover(bool on)
         {
-            if (selectedPlot == null)
-            {
-                return;
-            }
-
             suspendRebuild = true;
             foreach (var o in HoverOptions)
             {
@@ -535,24 +540,24 @@ namespace PlayniteCharts.ViewModels
             }
 
             suspendRebuild = false;
-            selectedPlot.HoverFieldIds = HoverOptions.Where(o => o.IsChecked).Select(o => o.Field.Id).ToList();
-            Rebuild();
+            // the assignment itself notifies, and that already rebuilds
+            View.HoverFieldIds = HoverOptions.Where(o => o.IsChecked).Select(o => o.Field.Id).ToList();
         }
 
         private void OnHoverOptionChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (suspendRebuild || selectedPlot == null || e.PropertyName != nameof(HoverOption.IsChecked))
+            if (suspendRebuild || e.PropertyName != nameof(HoverOption.IsChecked))
             {
                 return;
             }
 
-            selectedPlot.HoverFieldIds = HoverOptions.Where(o => o.IsChecked).Select(o => o.Field.Id).ToList();
+            View.HoverFieldIds = HoverOptions.Where(o => o.IsChecked).Select(o => o.Field.Id).ToList();
         }
 
         private void SyncHoverOptions()
         {
             suspendRebuild = true;
-            var ids = new HashSet<string>(selectedPlot?.HoverFieldIds ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            var ids = new HashSet<string>(View.HoverFieldIds ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
             foreach (var o in HoverOptions)
             {
                 o.IsChecked = ids.Contains(o.Field.Id);

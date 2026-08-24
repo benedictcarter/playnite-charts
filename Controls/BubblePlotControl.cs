@@ -155,7 +155,7 @@ namespace PlayniteCharts.Controls
                     return;
                 }
 
-                var legendWidth = m.Config.ShowLegend ? MeasureLegend(m, t) : 0;
+                var legendWidth = m.ShowLegend ? MeasureLegend(m, t) : 0;
                 var yLabels = m.YTicks.Select(k => Text(k.Label, t.InkMutedBrush, 11)).ToList();
                 var leftPad = (yLabels.Count > 0 ? yLabels.Max(l => l.Width) : 0) + 30;
                 var bottomPad = 44.0;

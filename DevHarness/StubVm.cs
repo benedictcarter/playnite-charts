@@ -51,6 +51,7 @@ namespace PlayniteCharts.DevHarness
         public bool HasPlot => true;
         public bool ShowPlot => true;
         public bool HasFilters => Filters.Count > 0;
+        public ViewSettings View { get; } = new ViewSettings();
         public string SourceSummary => "720 games";
 
         public List<GameColumn> XFields => GameColumns.Continuous;

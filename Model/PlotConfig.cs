@@ -1,13 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Playnite.SDK;
 
 namespace PlayniteCharts.Model
 {
     /// <summary>
-    /// A saved bubble plot definition. Field references are stored as ids so the
-    /// serialized settings survive changes to the field registry.
+    /// A saved bubble plot definition: what is mapped to what. Field references are
+    /// stored as ids so the serialized settings survive changes to the field
+    /// registry. Anything that is about the view rather than the mapping - filters,
+    /// hover columns, appearance - lives on <see cref="ViewSettings"/> and is shared
+    /// by every plot.
     /// </summary>
     public class PlotConfig : ObservableObject
     {
@@ -17,12 +19,6 @@ namespace PlayniteCharts.Model
         private string sizeFieldId = "criticscore";
         private string colorFieldId = "completion";
         private string shapeFieldId = "source";
-        private List<string> hoverFieldIds = GameColumns.All.Select(f => f.Id).ToList();
-        private bool showLegend = true;
-        private bool missingAsZero;
-        private List<FilterConfig> filters = new List<FilterConfig>();
-        private double minBubbleSize = 3;
-        private double maxBubbleSize = 12;
 
         public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -62,43 +58,29 @@ namespace PlayniteCharts.Model
             set => SetValue(ref shapeFieldId, value);
         }
 
-        public List<string> HoverFieldIds
-        {
-            get => hoverFieldIds;
-            set => SetValue(ref hoverFieldIds, value);
-        }
+        // ---- legacy: these were per-plot before the settings were shared. They are
+        // still deserialized so an existing settings file can be lifted into
+        // ViewSettings once, then they stay null and are never written to again.
 
-        /// <summary>Plot a game with no value on a numeric channel at 0 instead of
-        /// dropping it. Dates are exempt - 0 there is 1899.</summary>
-        public bool MissingAsZero
-        {
-            get => missingAsZero;
-            set => SetValue(ref missingAsZero, value);
-        }
+        public List<string> HoverFieldIds { get; set; }
+        public List<FilterConfig> Filters { get; set; }
+        public bool ShowLegend { get; set; }
+        public bool MissingAsZero { get; set; }
+        public double MinBubbleSize { get; set; }
+        public double MaxBubbleSize { get; set; }
 
-        /// <summary>Saved with the plot: which games it is allowed to draw.</summary>
-        public List<FilterConfig> Filters
-        {
-            get => filters;
-            set => SetValue(ref filters, value ?? new List<FilterConfig>());
-        }
+        /// <summary>True while this plot still carries pre-shared-settings values.</summary>
+        public bool HasLegacyView =>
+            HoverFieldIds != null || Filters != null || MinBubbleSize > 0 || MaxBubbleSize > 0;
 
-        public bool ShowLegend
+        public void DropLegacyView()
         {
-            get => showLegend;
-            set => SetValue(ref showLegend, value);
-        }
-
-        public double MinBubbleSize
-        {
-            get => minBubbleSize;
-            set => SetValue(ref minBubbleSize, value);
-        }
-
-        public double MaxBubbleSize
-        {
-            get => maxBubbleSize;
-            set => SetValue(ref maxBubbleSize, value);
+            HoverFieldIds = null;
+            Filters = null;
+            ShowLegend = false;
+            MissingAsZero = false;
+            MinBubbleSize = 0;
+            MaxBubbleSize = 0;
         }
 
         public PlotConfig Clone(string newName)
@@ -111,13 +93,7 @@ namespace PlayniteCharts.Model
                 YFieldId = YFieldId,
                 SizeFieldId = SizeFieldId,
                 ColorFieldId = ColorFieldId,
-                ShapeFieldId = ShapeFieldId,
-                HoverFieldIds = new List<string>(HoverFieldIds ?? new List<string>()),
-                MissingAsZero = MissingAsZero,
-                Filters = (Filters ?? new List<FilterConfig>()).Select(f => f.Clone()).ToList(),
-                ShowLegend = ShowLegend,
-                MinBubbleSize = MinBubbleSize,
-                MaxBubbleSize = MaxBubbleSize
+                ShapeFieldId = ShapeFieldId
             };
         }
     }

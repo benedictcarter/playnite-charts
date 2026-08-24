@@ -97,6 +97,9 @@ namespace PlayniteCharts.Model
 
     public class PlotModel
     {
+        /// <summary>From the shared view settings, snapshotted at build time.</summary>
+        public bool ShowLegend { get; set; } = true;
+
         public PlotConfig Config { get; set; }
         public GameColumn XField { get; set; }
         public GameColumn YField { get; set; }
@@ -146,10 +149,11 @@ namespace PlayniteCharts.Model
 
         public string Problem { get; set; }
 
-        public static PlotModel Build(PlotConfig config, IList<Game> games, IList<Game> domainSource,
+        public static PlotModel Build(PlotConfig config, ViewSettings view, IList<Game> games, IList<Game> domainSource,
             int colorCapacity, int shapeCapacity)
         {
             var m = new PlotModel { Config = config, TotalGames = games.Count };
+            m.ShowLegend = view.ShowLegend;
             m.XField = GameColumns.Get(config.XFieldId);
             m.YField = GameColumns.Get(config.YFieldId);
             m.SizeField = GameColumns.Get(config.SizeFieldId);
@@ -164,7 +168,7 @@ namespace PlayniteCharts.Model
             var shapeField = GameColumns.Get(config.ShapeFieldId);
             m.ColorScale = colorField != null ? new CategoryScale(colorField, domainSource, colorCapacity) : null;
             m.ShapeScale = shapeField != null ? new CategoryScale(shapeField, domainSource, shapeCapacity) : null;
-            m.HoverFields = (config.HoverFieldIds ?? new List<string>())
+            m.HoverFields = (view.HoverFieldIds ?? new List<string>())
                 .Select(GameColumns.Get).Where(f => f != null).ToList();
 
             // "count a missing number as 0": only for numeric columns. A missing date
@@ -173,7 +177,7 @@ namespace PlayniteCharts.Model
             Func<GameColumn, Game, double?> read = (f, g) =>
             {
                 var v = f.GetNumber(g);
-                if (v.HasValue || !config.MissingAsZero || f.Kind != FieldKind.Numeric)
+                if (v.HasValue || !view.MissingAsZero || f.Kind != FieldKind.Numeric)
                 {
                     return v;
                 }
@@ -182,8 +186,8 @@ namespace PlayniteCharts.Model
             };
 
             // size scale: area-proportional (radius by sqrt) between the configured bounds
-            var minR = Math.Max(3.0, config.MinBubbleSize);
-            var maxR = Math.Max(minR + 1, config.MaxBubbleSize);
+            var minR = Math.Max(3.0, view.MinBubbleSize);
+            var maxR = Math.Max(minR + 1, view.MaxBubbleSize);
             double sizeMin = 0, sizeMax = 0;
             var haveSize = false;
             if (m.SizeField != null)

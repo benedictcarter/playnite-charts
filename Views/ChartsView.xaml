@@ -223,7 +223,7 @@
                                   RelativeSource={RelativeSource AncestorType=UserControl}}" />
 
                     <DockPanel LastChildFill="False">
-                        <TextBlock DockPanel.Dock="Left" Text="HOVER" Style="{StaticResource SectionHeader}" />
+                        <TextBlock DockPanel.Dock="Left" Text="HOVER  (all plots)" Style="{StaticResource SectionHeader}" />
                         <Button DockPanel.Dock="Right" Content="None" Padding="6,0" Margin="3,8,0,2" FontSize="10"
                                 ToolTip="Hover shows nothing but the name"
                                 Command="{Binding DataContext.NoHoverCommand,
@@ -249,7 +249,7 @@
                     </Border>
 
                     <DockPanel LastChildFill="False">
-                        <TextBlock DockPanel.Dock="Left" Text="FILTERS" Style="{StaticResource SectionHeader}" />
+                        <TextBlock DockPanel.Dock="Left" Text="FILTERS  (all plots)" Style="{StaticResource SectionHeader}" />
                         <Button x:Name="AddFilterButton" DockPanel.Dock="Right" Content="Add"
                                 Padding="6,0" Margin="3,8,0,2" FontSize="10" Click="OnAddFilterClick"
                                 ToolTip="Filter the plotted games by any column">
@@ -281,10 +281,10 @@
                                    RelativeSource={RelativeSource AncestorType=UserControl},
                                    Converter={StaticResource InverseBoolToVis}}" />
 
-                    <TextBlock Text="APPEARANCE" Style="{StaticResource SectionHeader}" />
-                    <CheckBox Content="Show legend" IsChecked="{Binding ShowLegend}" Margin="0,3"
+                    <TextBlock Text="APPEARANCE  (all plots)" Style="{StaticResource SectionHeader}" />
+                    <CheckBox Content="Show legend" IsChecked="{Binding DataContext.View.ShowLegend, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,3"
                               Foreground="{DynamicResource TextBrush}" />
-                    <CheckBox Content="Count a missing number as 0" IsChecked="{Binding MissingAsZero}" Margin="0,3"
+                    <CheckBox Content="Count a missing number as 0" IsChecked="{Binding DataContext.View.MissingAsZero, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,3"
                               Foreground="{DynamicResource TextBrush}"
                               ToolTip="Plot games with no user score, no critic score etc. at zero instead of leaving them out. Dates are never zeroed." />
 
@@ -293,16 +293,16 @@
                                    Foreground="{DynamicResource TextBrush}" Opacity="0.8" />
                         <TextBlock DockPanel.Dock="Right" Width="28" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextBrush}"
-                                   Text="{Binding MinBubbleSize, StringFormat={}{0:0}}" />
-                        <Slider Minimum="3" Maximum="16" Value="{Binding MinBubbleSize}" VerticalAlignment="Center" />
+                                   Text="{Binding DataContext.View.MinBubbleSize, StringFormat={}{0:0}, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        <Slider Minimum="3" Maximum="16" Value="{Binding DataContext.View.MinBubbleSize, RelativeSource={RelativeSource AncestorType=UserControl}}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Margin="0,4,0,10">
                         <TextBlock DockPanel.Dock="Left" Text="Largest" Width="70" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextBrush}" Opacity="0.8" />
                         <TextBlock DockPanel.Dock="Right" Width="28" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextBrush}"
-                                   Text="{Binding MaxBubbleSize, StringFormat={}{0:0}}" />
-                        <Slider Minimum="6" Maximum="48" Value="{Binding MaxBubbleSize}" VerticalAlignment="Center" />
+                                   Text="{Binding DataContext.View.MaxBubbleSize, StringFormat={}{0:0}, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        <Slider Minimum="6" Maximum="48" Value="{Binding DataContext.View.MaxBubbleSize, RelativeSource={RelativeSource AncestorType=UserControl}}" VerticalAlignment="Center" />
                     </DockPanel>
                 </StackPanel>
             </ScrollViewer>

@@ -31,6 +31,8 @@ namespace PlayniteCharts
                 var loaded = LoadPluginSettings<ChartsSettings>();
                 if (loaded?.Plots != null && loaded.Plots.Count > 0)
                 {
+                    // an older file kept these on each plot
+                    loaded.Migrate();
                     return loaded;
                 }
             }

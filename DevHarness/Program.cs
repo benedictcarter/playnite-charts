@@ -60,16 +60,13 @@ namespace PlayniteCharts.DevHarness
                 {
                     Name = "release date vs user score",
                     XFieldId = "releasedate", YFieldId = "userscore",
-                    SizeFieldId = "criticscore", ColorFieldId = "completion", ShapeFieldId = "source",
-                    HoverFieldIds = GameColumns.All.Select(f => f.Id).ToList()
+                    SizeFieldId = "criticscore", ColorFieldId = "completion", ShapeFieldId = "source"
                 },
                 new PlotConfig
                 {
                     Name = "playtime vs critic score",
                     XFieldId = "playtime", YFieldId = "criticscore",
-                    SizeFieldId = string.Empty, ColorFieldId = "genre", ShapeFieldId = string.Empty,
-                    HoverFieldIds = new List<string> { "name" },
-                    MissingAsZero = true
+                    SizeFieldId = string.Empty, ColorFieldId = "genre", ShapeFieldId = string.Empty
                 }
             };
 
@@ -79,9 +76,14 @@ namespace PlayniteCharts.DevHarness
                 new Surface("light", Color.FromRgb(0xF5, 0xF5, 0xF5))
             };
 
+            var view = new ViewSettings
+            {
+                HoverFieldIds = GameColumns.All.Select(f => f.Id).ToList()
+            };
+
             foreach (var cfg in cases)
             {
-                var model = PlotModel.Build(cfg, games, games, PlotTheme.SeriesCapacity, MarkShapes.Count);
+                var model = PlotModel.Build(cfg, view, games, games, PlotTheme.SeriesCapacity, MarkShapes.Count);
                 if (model.Problem != null)
                 {
                     Console.WriteLine($"{cfg.Name}: PROBLEM - {model.Problem}");
