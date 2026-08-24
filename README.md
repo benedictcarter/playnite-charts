@@ -16,7 +16,6 @@ so you can filter once and then flick between views to explore.
 - Right-click a bubble for Playnite's own game menu — borrowed at runtime, not
   reimplemented, so it stays in step with Playnite.
 - Drag a bubble along a user-score axis to set that game's score.
-- A table view lists the same rows as text.
 
 ## Install
 

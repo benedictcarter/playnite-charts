@@ -200,9 +200,10 @@ Rules that came out of it:
 defaulted to *all* columns, that was 36 columns x N games on the UI thread — including
 regex HTML-stripping of every description — for a table that was not even visible.
 Measured in the DevHarness: 5,000 games x 36 columns = ~1.3 s. Playnite Desktop is x86,
-so the string churn is also real memory pressure. The table now builds only when the
-Table toggle is on, and `Rebuild()` logs its own elapsed ms so the next slowdown is
-visible in `playnite.log` instead of being guessed at.
+so the string churn is also real memory pressure. The table was first made lazy (built
+only when its toggle was on) and later dropped altogether — Playnite's own list view
+already shows the same rows as text. `Rebuild()` still logs its own elapsed ms, so the
+next slowdown is visible in `playnite.log` instead of being guessed at.
 
 ## Playnite locks its extension DLLs — deploy has to close it
 

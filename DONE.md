@@ -1,5 +1,13 @@
 # DONE
 
+## 2026-08-24 — UAT round 1
+- Top-right toolbar cleared: "Refresh" and the "Table" toggle are gone, and the
+  table view with them (Playnite's own list view already shows the rows as text).
+- "Use library filter" moved down under FILTERS, where the rest of the filtering is.
+- Saved-plot list is sized by its contents: it grows a row at a time and leaves no
+  empty box under "New", scrolling only past ~15 plots.
+- Saved plots reorder by drag and drop.
+
 ## 2026-08-24 — extracted into its own repo
 - The extension began life in a fork of Playnite (`benedictcarter/playnite_charts`,
   branch `charts`). Nothing under `source/` was ever modified: the extension only
