@@ -13,14 +13,11 @@ namespace PlayniteCharts.DevHarness
     /// </summary>
     internal class StubVm : ObservableObject
     {
-        private object selectedRow;
-
         public StubVm()
         {
             var a = new PlotConfig { Name = "release date vs user score" };
             var b = new PlotConfig { Name = "playtime vs critic score" };
-            PlotRows = new ObservableCollection<object> { a, b, new NewPlotRow() };
-            selectedRow = a;
+            Plots = new ObservableCollection<PlotConfig> { a, b };
             SelectedPlot = a;
 
             foreach (var f in GameColumns.All)
@@ -29,16 +26,10 @@ namespace PlayniteCharts.DevHarness
             }
         }
 
-        public ObservableCollection<object> PlotRows { get; }
+        public ObservableCollection<PlotConfig> Plots { get; }
         public ObservableCollection<HoverOption> HoverOptions { get; } = new ObservableCollection<HoverOption>();
 
-        public object SelectedRow
-        {
-            get => selectedRow;
-            set => SetValue(ref selectedRow, value);
-        }
-
-        public PlotConfig SelectedPlot { get; }
+        public PlotConfig SelectedPlot { get; set; }
         public bool HasPlot => true;
         public bool ShowPlot => true;
         public string SourceSummary => "720 games";

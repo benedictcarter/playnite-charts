@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:PlayniteCharts.Controls"
              xmlns:model="clr-namespace:PlayniteCharts.Model"
-             xmlns:vm="clr-namespace:PlayniteCharts.ViewModels"
              mc:Ignorable="d"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -59,9 +58,28 @@
             </DockPanel>
         </DataTemplate>
 
-        <DataTemplate DataType="{x:Type vm:NewPlotRow}">
-            <TextBlock Text="New" FontStyle="Italic" Opacity="0.7" VerticalAlignment="Center" />
-        </DataTemplate>
+        <!-- the create row: looks like the last line of the list, behaves like a button -->
+        <Style x:Key="NewPlotRow" TargetType="Button">
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="Transparent" Padding="4,3">
+                            <TextBlock Text="New" FontStyle="Italic" Opacity="0.7"
+                                       Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{DynamicResource NormalBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -83,24 +101,34 @@
             <TextBlock Grid.Row="0" Text="SAVED PLOTS" Style="{StaticResource SectionHeader}"
                        Margin="0,0,0,5" />
 
-            <ListBox Grid.Row="1" ItemsSource="{Binding PlotRows}" SelectedItem="{Binding SelectedRow}"
-                     HorizontalContentAlignment="Stretch">
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                        <Setter Property="ContextMenu">
-                            <Setter.Value>
-                                <ContextMenu>
-                                    <MenuItem Header="Duplicate"
-                                              Command="{Binding PlacementTarget.DataContext.DuplicatePlotCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                              CommandParameter="{Binding PlacementTarget.DataContext,
-                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                </ContextMenu>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-            </ListBox>
+            <Border Grid.Row="1" BorderThickness="1" BorderBrush="{DynamicResource NormalBorderBrush}">
+                <!-- stacked, not docked, so "New" sits right under the last plot -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <ListBox ItemsSource="{Binding Plots}" SelectedItem="{Binding SelectedPlot}"
+                             BorderThickness="0" Background="Transparent"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="Duplicate"
+                                                      Command="{Binding PlacementTarget.DataContext.DuplicatePlotCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <Button Style="{StaticResource NewPlotRow}"
+                                ToolTip="Add a new plot" Command="{Binding NewPlotCommand}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
 
             <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="Transparent" />
 

@@ -96,8 +96,36 @@ namespace PlayniteCharts.DevHarness
                 Console.WriteLine(hoverFile);
             }
 
+            BenchTable(db);
             SmokeTestView(Path.Combine(outDir, "chartsview.png"));
             return 0;
+        }
+
+        /// <summary>
+        /// What "hover everything" costs the table: one string per column per game,
+        /// with the free-text columns stripping HTML. This is what froze Playnite.
+        /// </summary>
+        private static void BenchTable(FakeDatabase db)
+        {
+            var rnd = new Random(7);
+            var html = string.Concat(Enumerable.Repeat(
+                "<p>Some <b>marketing</b> copy about the game.</p>", 40));
+            var games = new List<Game>();
+            for (var i = 0; i < 5000; i++)
+            {
+                games.Add(new Game($"Bench {i}")
+                {
+                    Description = html,
+                    Notes = html,
+                    UserScore = rnd.Next(1, 100),
+                    Added = DateTime.Today
+                });
+            }
+
+            var fields = GameColumns.All;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var rows = games.Select(g => fields.Select(f => f.Display(g) ?? string.Empty).ToList()).ToList();
+            Console.WriteLine($"table: {rows.Count} games x {fields.Count} columns in {sw.ElapsedMilliseconds} ms");
         }
 
         /// <summary>
