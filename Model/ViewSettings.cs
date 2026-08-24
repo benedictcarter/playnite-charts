@@ -13,7 +13,11 @@ namespace PlayniteCharts.Model
     /// </summary>
     public class ViewSettings : ObservableObject
     {
-        private List<string> hoverFieldIds = new List<string> { "name", "playtime" };
+        // Empty, not a starter selection: Playnite persists settings with Json.NET,
+        // which by default *adds* to a list a property already holds rather than
+        // replacing it, so a non-empty initialiser re-appended itself on every load.
+        // The out-of-the-box selection lives in ChartsSettings.CreateDefault.
+        private List<string> hoverFieldIds = new List<string>();
         private List<FilterConfig> filters = new List<FilterConfig>();
         private bool showLegend = true;
         private bool showTitles;

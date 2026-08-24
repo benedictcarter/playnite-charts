@@ -353,3 +353,32 @@ is load-bearing and `using Playnite.SDK;` is not what resolves it. A tidy-up pas
 that strips usings by "does this file mention `List<>`?" will break exactly those
 files. Don't trust the compiler's error location to name the edit that caused it -
 it names the symbol that stopped resolving.
+
+## A non-empty list initialiser grows every time Playnite loads your settings
+
+`ViewSettings.HoverFieldIds` started life as `new List<string> { "name", "playtime" }`
+— a sensible out-of-the-box hover selection. Months later the hover card was showing
+**Playtime (hours) four times**, and the saved config held:
+
+```
+['name','playtime','name','playtime','name','playtime','category',...,'playtime',...]
+```
+
+Nothing in the code ever appends to that list: the only writer replaces it wholesale
+with `HoverOptions.Where(o => o.IsChecked)`, which cannot produce a duplicate. The
+growth happens in the *deserializer*. Playnite persists plugin settings with Json.NET,
+whose default `ObjectCreationHandling.Auto` **reuses the collection instance the
+property already holds and adds to it** instead of replacing it. So every load
+re-appended the two defaults, and every subsequent save wrote the longer list back —
+two more entries per Playnite launch, forever.
+
+The tell is that the duplicated entries are exactly the field initialiser's contents,
+and the count grows by that many per run. Nothing in your own code has to be wrong.
+
+**Rule:** a persisted collection property gets an *empty* initialiser. Defaults belong
+in an explicit `CreateDefault()` that runs only when there is nothing to load. Where a
+list can already be polluted on disk, `Distinct()` it on load — a code fix alone leaves
+existing users broken, because their config file is already wrong.
+
+(The same trap applies to `Dictionary` and to any `List<T>` on a settings class. It bit
+`HoverFieldIds` and would have bitten `Plots` had its default not been empty.)
