@@ -123,7 +123,7 @@ namespace PlayniteCharts.DevHarness
                 var host = new Border
                 {
                     Background = new SolidColorBrush(Color.FromRgb(0x15, 0x1D, 0x38)),
-                    Child = new Views.ChartsView(),
+                    Child = new Views.ChartsView { DataContext = new StubVm() },
                     Width = Width,
                     Height = Height
                 };

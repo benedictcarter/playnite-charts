@@ -26,6 +26,15 @@ namespace PlayniteCharts.ViewModels
         }
     }
 
+    /// <summary>The always-last row of the plot list. Selecting it is how a plot gets
+    /// created, so no real plot is allowed to be called "New".</summary>
+    public class NewPlotRow
+    {
+        public const string RowName = "New";
+
+        public string Name => RowName;
+    }
+
     public class TableRow
     {
         public Game Game { get; set; }
@@ -40,11 +49,16 @@ namespace PlayniteCharts.ViewModels
         private readonly IPlayniteAPI api;
         private bool suspendRebuild;
         private PlotConfig selectedPlot;
+        private object selectedRow;
+        private readonly NewPlotRow newRow = new NewPlotRow();
         private PlotModel model;
         private bool showTable;
         private IList<Game> domainSource = new List<Game>();
 
         public ObservableCollection<PlotConfig> Plots { get; }
+
+        /// <summary>Plots plus the trailing "New" row - what the list actually shows.</summary>
+        public ObservableCollection<object> PlotRows { get; } = new ObservableCollection<object>();
 
         public List<GameColumn> XFields { get; }
         public List<GameColumn> YFields { get; }
@@ -56,7 +70,6 @@ namespace PlayniteCharts.ViewModels
         public List<string> TableColumns { get; private set; } = new List<string>();
         public List<TableRow> TableRows { get; private set; } = new List<TableRow>();
 
-        public RelayCommand<object> NewPlotCommand { get; }
         public RelayCommand<object> DuplicatePlotCommand { get; }
         public RelayCommand<object> DeletePlotCommand { get; }
         public RelayCommand<object> RefreshCommand { get; }
@@ -88,13 +101,14 @@ namespace PlayniteCharts.ViewModels
             }
 
             selectedPlot = Plots.FirstOrDefault(p => p.Id == plugin.Settings.LastSelectedPlotId) ?? Plots.FirstOrDefault();
+            selectedRow = selectedPlot;
+            SyncRows();
             SyncHoverOptions();
 
-            NewPlotCommand = new RelayCommand<object>(_ => AddPlot(new PlotConfig { Name = UniqueName("New plot") }));
             DuplicatePlotCommand = new RelayCommand<object>(
-                _ => AddPlot(SelectedPlot.Clone(UniqueName(SelectedPlot.Name + " copy"))),
-                _ => SelectedPlot != null);
-            DeletePlotCommand = new RelayCommand<object>(_ => DeleteSelected(), _ => SelectedPlot != null && Plots.Count > 1);
+                o => Duplicate(o as PlotConfig ?? selectedPlot),
+                o => (o as PlotConfig ?? selectedPlot) != null);
+            DeletePlotCommand = new RelayCommand<object>(o => Delete(o as PlotConfig ?? selectedPlot));
             RefreshCommand = new RelayCommand<object>(_ => Refresh());
             AllHoverCommand = new RelayCommand<object>(_ => SetAllHover(true), _ => SelectedPlot != null);
             NoHoverCommand = new RelayCommand<object>(_ => SetAllHover(false), _ => SelectedPlot != null);
@@ -116,10 +130,33 @@ namespace PlayniteCharts.ViewModels
                 }
 
                 SetValue(ref selectedPlot, value);
+                SelectedRow = value;
                 plugin.Settings.LastSelectedPlotId = value?.Id ?? Guid.Empty;
                 SyncHoverOptions();
                 Rebuild();
                 OnPropertyChanged(nameof(HasPlot));
+            }
+        }
+
+        /// <summary>What the list box is bound to - either a PlotConfig or the "New" row.</summary>
+        public object SelectedRow
+        {
+            get => selectedRow;
+            set
+            {
+                if (value is NewPlotRow)
+                {
+                    AddPlot(new PlotConfig { Name = UniqueName("New plot") });
+                    return;
+                }
+
+                if (ReferenceEquals(selectedRow, value))
+                {
+                    return;
+                }
+
+                SetValue(ref selectedRow, value);
+                SelectedPlot = value as PlotConfig;
             }
         }
 
@@ -286,12 +323,57 @@ namespace PlayniteCharts.ViewModels
             Persist();
         }
 
-        private void DeleteSelected()
+        private void Duplicate(PlotConfig plot)
         {
-            var idx = Plots.IndexOf(selectedPlot);
-            Plots.Remove(selectedPlot);
-            SelectedPlot = Plots.ElementAtOrDefault(Math.Min(idx, Plots.Count - 1));
+            if (plot == null)
+            {
+                return;
+            }
+
+            AddPlot(plot.Clone(UniqueName(plot.Name + " copy")));
+        }
+
+        private void Delete(PlotConfig plot)
+        {
+            if (plot == null)
+            {
+                return;
+            }
+
+            var idx = Plots.IndexOf(plot);
+            Plots.Remove(plot);
+            if (ReferenceEquals(plot, selectedPlot))
+            {
+                SelectedPlot = Plots.ElementAtOrDefault(Math.Min(idx, Plots.Count - 1));
+            }
+
             Persist();
+        }
+
+        /// <summary>
+        /// Incremental on purpose: a Clear() blanks the list box's selection, which
+        /// pushes null back into SelectedRow and bounces the plot (and a rebuild)
+        /// through null on every add and delete.
+        /// </summary>
+        private void SyncRows()
+        {
+            foreach (var gone in PlotRows.OfType<PlotConfig>().Where(p => !Plots.Contains(p)).ToList())
+            {
+                PlotRows.Remove(gone);
+            }
+
+            for (var i = 0; i < Plots.Count; i++)
+            {
+                if (i >= PlotRows.Count || !ReferenceEquals(PlotRows[i], Plots[i]))
+                {
+                    PlotRows.Insert(i, Plots[i]);
+                }
+            }
+
+            if (!(PlotRows.LastOrDefault() is NewPlotRow))
+            {
+                PlotRows.Add(newRow);
+            }
         }
 
         private string UniqueName(string basis)
@@ -319,6 +401,7 @@ namespace PlayniteCharts.ViewModels
             }
 
             plugin.Settings.Plots = Plots.ToList();
+            SyncRows();
         }
 
         private void OnPlotChanged(object sender, PropertyChangedEventArgs e)
@@ -328,7 +411,16 @@ namespace PlayniteCharts.ViewModels
                 return;
             }
 
-            if (e.PropertyName != nameof(PlotConfig.Name))
+            if (e.PropertyName == nameof(PlotConfig.Name))
+            {
+                // "New" is the create-a-plot row; a real plot may not take that name
+                if (string.Equals(selectedPlot.Name?.Trim(), NewPlotRow.RowName, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    selectedPlot.Name = UniqueName("New plot");
+                    return;
+                }
+            }
+            else
             {
                 Rebuild();
             }
