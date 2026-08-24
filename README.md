@@ -8,6 +8,8 @@ shape and the hover card — and each combination can be saved, renamed and
 re-opened. Filters, hover columns and appearance are shared by every saved plot,
 so you can filter once and then flick between views to explore.
 
+![Release date against user score](pics/release-date-vs-user-score.png)
+
 - Bubble **area** carries the size value, not its radius.
 - Categorical colour uses a validated all-pairs palette (every pair separable
   under colour-vision deficiency, on both the light and dark Playnite surfaces);
@@ -16,6 +18,15 @@ so you can filter once and then flick between views to explore.
 - Right-click a bubble for Playnite's own game menu — borrowed at runtime, not
   reimplemented, so it stays in step with Playnite.
 - Drag a bubble along a user-score axis to set that game's score.
+
+Colour and shape take categories as happily as numbers — here genre, and whether the
+game is installed, over playtime against critic score:
+
+![Colour by genre, shape by installed](pics/colour-by-genre.png)
+
+Right-click a bubble and you get Playnite's own game menu, other extensions included:
+
+![Playnite's game menu on a bubble](pics/game-menu.png)
 
 ## Install
 
