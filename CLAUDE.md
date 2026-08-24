@@ -10,10 +10,9 @@ needs no clone of Playnite itself. `Interop/DesktopGameMenu` reaches into
 `Playnite.DesktopApp` purely by reflection at runtime, inside the app's own
 AppDomain, so there is nothing to reference at compile time.
 
-The Playnite fork this was extracted from lives at
-<https://github.com/benedictcarter/playnite_charts> (branch `charts`) and keeps the
-fork-era history. Nothing in `source/` was ever modified, so there is no core
-change to send upstream - an extension reaches users through a manifest PR to
+This was extracted from a fork of Playnite, since deleted. Nothing in `source/`
+was ever modified, so there is no core change to send upstream - an extension
+reaches users through a manifest PR to
 [PlayniteAddonDatabase](https://github.com/JosefNemec/PlayniteAddonDatabase), not
 through a PR to Playnite.
 

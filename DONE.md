@@ -8,9 +8,20 @@
   empty box under "New", scrolling only past ~15 plots.
 - Saved plots reorder by drag and drop.
 
+## 2026-08-24 - released 1.0.0 and listed in the add-on database
+- Tagged `v1.0.0`, packed with Toolbox and attached the `.pext` to the GitHub
+  release, which is what `InstallerManifest.yaml` points the updater at.
+- Manifest PR to PlayniteAddonDatabase merged as `addons/generic/benedictcarter_Charts.yaml`,
+  so Charts now shows in Playnite's own add-on browser and can auto-update.
+- Direct install URI: `playnite://playnite/installaddon/PlayniteCharts_8a4f2c10-5c1e-4b2a-9d3f-6e7b0a1c4d55`
+- Fixed on the way out: the hover column list grew on every settings load,
+  because Json.NET appends to a list a property already holds rather than
+  replacing it, so a non-empty field initialiser re-appended itself each time.
+
 ## 2026-08-24 - extracted into its own repo
 - The extension began life in a fork of Playnite (`benedictcarter/playnite_charts`,
-  branch `charts`). Nothing under `source/` was ever modified: the extension only
+  branch `charts`, deleted once the extraction was done). Nothing under `source/`
+  was ever modified: the extension only
   ever referenced the SDK from NuGet, so the fork was not needed to build it.
 - Split out here with its own history (18 commits replayed from the fork), the
   extension at the repo root. The fork stays on GitHub as the record of the
