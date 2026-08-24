@@ -95,6 +95,13 @@ namespace PlayniteCharts.DevHarness
                 var hoverFile = Path.Combine(outDir, $"{Slug(cfg.Name)}-hover.png");
                 Render(model, surfaces[0].Color, hoverFile, true);
                 Console.WriteLine(hoverFile);
+
+                if (model.YField.IsEditable || model.XField.IsEditable)
+                {
+                    var dragFile = Path.Combine(outDir, $"{Slug(cfg.Name)}-drag.png");
+                    Render(model, surfaces[0].Color, dragFile, false, true);
+                    Console.WriteLine(dragFile);
+                }
             }
 
             BenchTable(db);
@@ -177,7 +184,7 @@ namespace PlayniteCharts.DevHarness
             }
         }
 
-        private static void Render(PlotModel model, Color surface, string file, bool withHover)
+        private static void Render(PlotModel model, Color surface, string file, bool withHover, bool withDrag = false)
         {
             var plot = new BubblePlotControl { Model = model };
             var host = new Border
@@ -192,6 +199,21 @@ namespace PlayniteCharts.DevHarness
             host.Measure(new Size(Width, Height));
             host.Arrange(new Rect(0, 0, Width, Height));
             host.UpdateLayout();
+
+            if (withDrag)
+            {
+                // no mouse offscreen: poke the private drag state mid-gesture
+                var flags = BindingFlags.NonPublic | BindingFlags.Instance;
+                var pick = model.Points.OrderByDescending(pt => pt.Radius).Skip(4).First();
+                var field = model.YField.IsEditable ? model.YField : model.XField;
+                typeof(BubblePlotControl).GetField("hovered", flags).SetValue(plot, pick);
+                typeof(BubblePlotControl).GetField("dragPoint", flags).SetValue(plot, pick);
+                typeof(BubblePlotControl).GetField("dragField", flags).SetValue(plot, field);
+                typeof(BubblePlotControl).GetField("dragOnY", flags).SetValue(plot, ReferenceEquals(field, model.YField));
+                typeof(BubblePlotControl).GetField("dragging", flags).SetValue(plot, true);
+                typeof(BubblePlotControl).GetField("dragValue", flags).SetValue(plot, field.Snap(88));
+                typeof(BubblePlotControl).GetMethod("Redraw", flags).Invoke(plot, null);
+            }
 
             if (withHover)
             {

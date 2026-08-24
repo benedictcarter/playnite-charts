@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Windows.Controls;
 using System.Windows.Data;
+using PlayniteCharts.Controls;
 using PlayniteCharts.Model;
 using PlayniteCharts.ViewModels;
 
@@ -15,6 +16,7 @@ namespace PlayniteCharts.Views
         {
             InitializeComponent();
             Plot.PointActivated += OnPointActivated;
+            Plot.ValueEdited += OnValueEdited;
             DataContextChanged += OnDataContextChanged;
         }
 
@@ -44,6 +46,11 @@ namespace PlayniteCharts.Views
         private void OnPointActivated(object sender, PlotPoint point)
         {
             model?.ActivatePoint(point);
+        }
+
+        private void OnValueEdited(object sender, ValueEditEventArgs e)
+        {
+            model?.ApplyEdit(e.Point, e.Column, e.Value);
         }
 
         /// <summary>The table's columns follow whichever fields the current plot uses.</summary>

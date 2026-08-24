@@ -15,6 +15,21 @@ namespace PlayniteCharts.Controls
     /// change into one visual; the hover ring and tooltip live in a second visual
     /// so moving the mouse never re-renders thousands of marks.
     /// </summary>
+    /// <summary>A mark was dragged along an editable axis: write it back.</summary>
+    public class ValueEditEventArgs : EventArgs
+    {
+        public ValueEditEventArgs(PlotPoint point, GameColumn column, double value)
+        {
+            Point = point;
+            Column = column;
+            Value = value;
+        }
+
+        public PlotPoint Point { get; }
+        public GameColumn Column { get; }
+        public double Value { get; }
+    }
+
     public class BubblePlotControl : FrameworkElement
     {
         /// <summary>
@@ -41,7 +56,20 @@ namespace PlayniteCharts.Controls
         private List<PlotPoint> drawOrder = new List<PlotPoint>();
         private double pixelsPerDip = 1.0;
 
+        private PlotPoint dragPoint;
+        private GameColumn dragField;
+        private bool dragOnY;
+        private bool dragging;
+        private Point dragOrigin;
+        private double dragValue;
+
+        /// <summary>A click must not nudge a score, so a drag only starts past this.</summary>
+        private const double DragSlop = 4;
+
         public event EventHandler<PlotPoint> PointActivated;
+
+        /// <summary>A mark was dragged along an editable axis and dropped.</summary>
+        public event EventHandler<ValueEditEventArgs> ValueEdited;
 
         public static readonly DependencyProperty ModelProperty = DependencyProperty.Register(
             nameof(Model), typeof(PlotModel), typeof(BubblePlotControl),
@@ -190,6 +218,12 @@ namespace PlayniteCharts.Controls
             dc.PushOpacity(MarkOpacity(m.Points.Count));
             foreach (var p in drawOrder)
             {
+                if (dragging && ReferenceEquals(p, dragPoint))
+                {
+                    // it is being drawn by the overlay at the mouse instead
+                    continue;
+                }
+
                 var c = new Point(ToScreenX(m, p.X), ToScreenY(m, p.Y));
                 var geo = MarkShapes.Create(p.ShapeSlot, c, p.Radius);
                 dc.DrawGeometry(t.SeriesBrush(p.ColorSlot), t.RingPen, geo);
@@ -215,6 +249,13 @@ namespace PlayniteCharts.Controls
             var text = skipped > 0
                 ? $"{m.PlottedGames:N0} games plotted  ({skipped:N0} without a value on both axes)"
                 : $"{m.PlottedGames:N0} games plotted";
+
+            var editable = EditableAxis(m, out _);
+            if (editable != null)
+            {
+                text += $"   -   drag a bubble to set its {editable.Name.ToLowerInvariant()}";
+            }
+
             dc.DrawText(Text(text, t.InkMutedBrush, 11), new Point(plotRect.Left, 6));
         }
 
@@ -354,13 +395,31 @@ namespace PlayniteCharts.Controls
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            var hit = HitTest(e.GetPosition(this));
+            var pos = e.GetPosition(this);
+            if (dragPoint != null && TrackDrag(pos))
+            {
+                return;
+            }
+
+            var hit = HitTest(pos);
             if (!ReferenceEquals(hit, hovered))
             {
                 hovered = hit;
-                Cursor = hit != null ? Cursors.Hand : Cursors.Arrow;
+                Cursor = DragCursor(hit);
                 RedrawOverlay();
             }
+        }
+
+        private Cursor DragCursor(PlotPoint hit)
+        {
+            if (hit == null)
+            {
+                return Cursors.Arrow;
+            }
+
+            return EditableAxis(Model, out var onY) == null
+                ? Cursors.Hand
+                : (onY ? Cursors.SizeNS : Cursors.SizeWE);
         }
 
         protected override void OnMouseLeave(MouseEventArgs e)
@@ -376,10 +435,149 @@ namespace PlayniteCharts.Controls
         protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
         {
             base.OnMouseLeftButtonUp(e);
+            var point = dragPoint;
+            var field = dragField;
+            var value = dragValue;
+            var dropped = dragging;
+            EndDrag();
+
+            if (dropped)
+            {
+                ValueEdited?.Invoke(this, new ValueEditEventArgs(point, field, value));
+                return;
+            }
+
             var hit = HitTest(e.GetPosition(this));
             if (hit != null)
             {
                 PointActivated?.Invoke(this, hit);
+            }
+        }
+
+        // --------------------------------------------------------------- dragging
+
+        /// <summary>
+        /// The one axis a drag is allowed to move along: the first of Y then X whose
+        /// column can be written back. Movement on the other axis is ignored, so a
+        /// game never slides sideways into a release date it does not have.
+        /// </summary>
+        private static GameColumn EditableAxis(PlotModel m, out bool onY)
+        {
+            onY = true;
+            if (m?.Problem != null)
+            {
+                return null;
+            }
+
+            if (m?.YField?.IsEditable == true)
+            {
+                return m.YField;
+            }
+
+            if (m?.XField?.IsEditable == true)
+            {
+                onY = false;
+                return m.XField;
+            }
+
+            return null;
+        }
+
+        protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+        {
+            base.OnMouseLeftButtonDown(e);
+            var field = EditableAxis(Model, out var onY);
+            if (field == null)
+            {
+                return;
+            }
+
+            var hit = HitTest(e.GetPosition(this));
+            if (hit == null)
+            {
+                return;
+            }
+
+            dragPoint = hit;
+            dragField = field;
+            dragOnY = onY;
+            dragOrigin = e.GetPosition(this);
+            dragValue = field.Snap(onY ? hit.Y : hit.X);
+            CaptureMouse();
+
+            // only so Escape reaches OnKeyDown; put back the way it was on drop
+            Focusable = true;
+            Focus();
+        }
+
+        /// <summary>Returns true once the pointer is actually dragging a mark.</summary>
+        private bool TrackDrag(Point pos)
+        {
+            var m = Model;
+            if (m == null || Mouse.LeftButton != MouseButtonState.Pressed)
+            {
+                CancelDrag();
+                return false;
+            }
+
+            if (!dragging)
+            {
+                var moved = Math.Abs(pos.X - dragOrigin.X) + Math.Abs(pos.Y - dragOrigin.Y);
+                if (moved < DragSlop)
+                {
+                    return true;
+                }
+
+                dragging = true;
+                hovered = dragPoint;
+                Redraw();
+            }
+
+            dragValue = dragField.Snap(dragOnY ? FromScreenY(m, pos.Y) : FromScreenX(m, pos.X));
+            RedrawOverlay();
+            return true;
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (e.Key == Key.Escape && dragPoint != null)
+            {
+                CancelDrag();
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnLostMouseCapture(MouseEventArgs e)
+        {
+            base.OnLostMouseCapture(e);
+            CancelDrag();
+        }
+
+        private void CancelDrag()
+        {
+            var redraw = dragging;
+            EndDrag();
+            if (redraw)
+            {
+                Redraw();
+            }
+        }
+
+        private void EndDrag()
+        {
+            if (dragPoint == null)
+            {
+                return;
+            }
+
+            dragPoint = null;
+            dragField = null;
+            dragging = false;
+            Focusable = false;
+            if (IsMouseCaptured)
+            {
+                ReleaseMouseCapture();
             }
         }
 
@@ -423,6 +621,20 @@ namespace PlayniteCharts.Controls
 
                 var t = EnsureTheme();
                 var c = new Point(ToScreenX(m, p.X), ToScreenY(m, p.Y));
+                if (dragging)
+                {
+                    // the free coordinate follows the value; the other one cannot move
+                    if (dragOnY)
+                    {
+                        c.Y = ToScreenY(m, dragValue);
+                    }
+                    else
+                    {
+                        c.X = ToScreenX(m, dragValue);
+                    }
+
+                    DrawDragGuide(dc, t, c);
+                }
 
                 // halo: ink ring outside a surface ring, so it reads on any mark colour
                 var ringR = p.Radius + 3.5;
@@ -430,8 +642,57 @@ namespace PlayniteCharts.Controls
                 dc.DrawEllipse(null, new Pen(t.InkBrush, 1.5), c, ringR, ringR);
                 dc.DrawGeometry(t.SeriesBrush(p.ColorSlot), t.RingPen, MarkShapes.Create(p.ShapeSlot, c, p.Radius));
 
-                DrawTooltip(dc, m, t, p, c);
+                if (dragging)
+                {
+                    DrawDragReadout(dc, t, p, c);
+                }
+                else
+                {
+                    DrawTooltip(dc, m, t, p, c);
+                }
             }
+        }
+
+        /// <summary>The rail the mark is sliding on, so the constraint is visible.</summary>
+        private void DrawDragGuide(DrawingContext dc, PlotTheme t, Point c)
+        {
+            var pen = new Pen(t.InkMutedBrush, 1)
+            {
+                DashStyle = new DashStyle(new double[] { 3, 3 }, 0)
+            };
+
+            if (dragOnY)
+            {
+                dc.DrawLine(pen, new Point(Snap(c.X), plotRect.Top), new Point(Snap(c.X), plotRect.Bottom));
+            }
+            else
+            {
+                dc.DrawLine(pen, new Point(plotRect.Left, Snap(c.Y)), new Point(plotRect.Right, Snap(c.Y)));
+            }
+        }
+
+        /// <summary>Name and the value that would be written, right by the mark.</summary>
+        private void DrawDragReadout(DrawingContext dc, PlotTheme t, PlotPoint p, Point c)
+        {
+            var name = Ellipsize(p.Game?.Name ?? string.Empty, t.InkBrush, 12, 260);
+            var value = Text($"{dragField.Name}: {dragField.Format(dragValue)}", t.InkMutedBrush, 11);
+            const double pad = 8;
+            var w = Math.Max(name.Width, value.Width) + pad * 2;
+            var h = name.Height + value.Height + pad * 2 + 2;
+
+            // stay inside the plot: the legend to the right must stay readable
+            var x = c.X + p.Radius + 12;
+            if (x + w > plotRect.Right)
+            {
+                x = c.X - p.Radius - 12 - w;
+            }
+
+            x = Math.Max(2, x);
+            var y = Math.Max(plotRect.Top, Math.Min(plotRect.Bottom - h, c.Y - h / 2));
+            var box = new Rect(x, y, w, h);
+            dc.DrawRoundedRectangle(t.SurfaceBrush, new Pen(t.InkMutedBrush, 1), box, 4, 4);
+            dc.DrawText(name, new Point(x + pad, y + pad));
+            dc.DrawText(value, new Point(x + pad, y + pad + name.Height + 2));
         }
 
         private void DrawTooltip(DrawingContext dc, PlotModel m, PlotTheme t, PlotPoint p, Point anchor)
@@ -517,6 +778,12 @@ namespace PlayniteCharts.Controls
 
         private double ToScreenY(PlotModel m, double v) =>
             plotRect.Bottom - (v - m.YMin) / (m.YMax - m.YMin) * plotRect.Height;
+
+        private double FromScreenX(PlotModel m, double x) =>
+            plotRect.Width <= 0 ? m.XMin : m.XMin + (x - plotRect.Left) / plotRect.Width * (m.XMax - m.XMin);
+
+        private double FromScreenY(PlotModel m, double y) =>
+            plotRect.Height <= 0 ? m.YMin : m.YMin + (plotRect.Bottom - y) / plotRect.Height * (m.YMax - m.YMin);
 
         private static double Snap(double v) => Math.Round(v) + 0.5;
 

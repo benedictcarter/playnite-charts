@@ -428,6 +428,46 @@ namespace PlayniteCharts.ViewModels
             plugin.PersistSettings();
         }
 
+        /// <summary>
+        /// Writes a dragged value back into the library. The point holds whatever
+        /// Game object the plot was built from; the write goes to the database's own
+        /// instance so Playnite sees it and the rest of the UI updates with it.
+        /// </summary>
+        public void ApplyEdit(PlotPoint point, GameColumn column, double value)
+        {
+            if (point?.Game == null || column?.SetNumber == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var game = api.Database.Games[point.Game.Id] ?? point.Game;
+                var before = column.GetNumber?.Invoke(game);
+                if (before.HasValue && Math.Abs(before.Value - value) < 1e-9)
+                {
+                    return;
+                }
+
+                column.SetNumber(game, value);
+                api.Database.Games.Update(game);
+                logger.Info($"Charts: set {column.Name} of '{game.Name}' to {column.Format(value)}.");
+
+                if (!ReferenceEquals(game, point.Game))
+                {
+                    column.SetNumber(point.Game, value);
+                }
+
+                Rebuild();
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, "Failed to write a dragged value back to the library.");
+                api.Dialogs.ShowErrorMessage(
+                    $"Could not set {column.Name}: {e.Message}", "Charts");
+            }
+        }
+
         /// <summary>Jump to the clicked game in the library view.</summary>
         public void ActivatePoint(PlotPoint point)
         {

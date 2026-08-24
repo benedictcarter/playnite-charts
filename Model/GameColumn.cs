@@ -42,6 +42,19 @@ namespace PlayniteCharts.Model
         /// colour or shape channel, so it is offered for hover only.</summary>
         public bool HoverOnly { get; set; }
 
+        /// <summary>Writes a value back onto the game. Null (the default) means the
+        /// column is read-only and its axis cannot be dragged.</summary>
+        public Action<Game, double> SetNumber { get; set; }
+
+        /// <summary>Clamps and snaps a dragged value to something the column can
+        /// actually hold (user score is a whole number from 0 to 100).</summary>
+        public Func<double, double> Quantize { get; set; }
+
+        public bool IsEditable => SetNumber != null;
+
+        /// <summary>The value a drag to this position would actually store.</summary>
+        public double Snap(double value) => Quantize != null ? Quantize(value) : value;
+
         public bool IsContinuous => Kind == FieldKind.Numeric || Kind == FieldKind.Date;
         public bool IsDiscrete => Kind == FieldKind.Categorical;
 
@@ -149,6 +162,16 @@ namespace PlayniteCharts.Model
             };
         }
 
+        /// <summary>A 0-100 score the user owns, so its axis can be dragged.</summary>
+        private static GameColumn Score(string id, string name, Func<Game, double?> get,
+            Action<Game, int> set)
+        {
+            var f = Num(id, name, get);
+            f.Quantize = v => Math.Max(0, Math.Min(100, Math.Round(v)));
+            f.SetNumber = (g, v) => set(g, (int)Math.Max(0, Math.Min(100, Math.Round(v))));
+            return f;
+        }
+
         private static GameColumn Dt(string id, string name, Func<Game, DateTime?> get)
         {
             return new GameColumn
@@ -231,7 +254,7 @@ namespace PlayniteCharts.Model
                 Num("playtime", "Playtime (hours)", g => g.Playtime > 0 ? g.Playtime / 3600.0 : (double?)null, v => v.ToString("0.#") + " h"),
                 Num("playcount", "Play count", g => g.PlayCount > 0 ? g.PlayCount : (double?)null, v => v.ToString("N0")),
                 Num("installsize", "Install size (GB)", g => g.InstallSize.HasValue && g.InstallSize.Value > 0 ? g.InstallSize.Value / 1073741824.0 : (double?)null, v => v.ToString("0.##") + " GB"),
-                Num("userscore", "User score", g => g.UserScore),
+                Score("userscore", "User score", g => g.UserScore, (g, v) => g.UserScore = v),
                 Num("criticscore", "Critic score", g => g.CriticScore),
                 Num("communityscore", "Community score", g => g.CommunityScore),
                 Num("releaseyear", "Release year", g => g.ReleaseYear, v => ((int)v).ToString()),
