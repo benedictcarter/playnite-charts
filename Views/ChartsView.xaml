@@ -292,6 +292,23 @@
                               Foreground="{DynamicResource TextBrush}"
                               ToolTip="Plot games with no user score, no critic score etc. at zero instead of leaving them out. Dates are never zeroed." />
 
+                    <TextBlock Text="Colour ramp" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding DataContext.View.ColorRampId, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              SelectedValuePath="Id"
+                              ItemsSource="{Binding DataContext.ColorRamps, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              ToolTip="Used when the colour column holds numbers or dates - the value is read straight off the ramp. A text column still uses the fixed category palette.">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel>
+                                    <Rectangle DockPanel.Dock="Left" Width="46" Height="12" RadiusX="2" RadiusY="2"
+                                               Margin="0,0,8,0" VerticalAlignment="Center"
+                                               Fill="{Binding Preview}" />
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
                     <DockPanel Margin="0,6,0,0">
                         <TextBlock DockPanel.Dock="Left" Text="Smallest" Width="70" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextBrush}" Opacity="0.8" />

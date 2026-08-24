@@ -15,6 +15,11 @@ namespace PlayniteCharts.Model
         public double Radius { get; set; }
 
         public int ColorSlot { get; set; }
+
+        /// <summary>Position on the colour ramp, 0..1, when the colour column holds
+        /// numbers. Ignored while <see cref="PlotModel.ColorGradient"/> is null.</summary>
+        public double ColorT { get; set; }
+
         public int ShapeSlot { get; set; }
         public string ColorKey { get; set; }
         public string ShapeKey { get; set; }
@@ -123,23 +128,29 @@ namespace PlayniteCharts.Model
         public List<AxisTick> XTicks { get; set; } = new List<AxisTick>();
         public List<AxisTick> YTicks { get; set; } = new List<AxisTick>();
 
-        /// <summary>Value range of the size column and the radii it maps onto.</summary>
-        public double SizeMin { get; set; }
-        public double SizeMax { get; set; }
+        /// <summary>Value range of the size column, or null when nothing is on the
+        /// size channel. Area is anchored at zero where that is honest - see
+        /// <see cref="ChannelScale"/>.</summary>
+        public ChannelScale SizeScale { get; set; }
+
+        /// <summary>Value range of the colour column when it holds numbers, so the
+        /// colour is a ramp rather than eight arbitrary bins. Null for a categorical
+        /// colour column, where <see cref="ColorScale"/> is used instead.</summary>
+        public ChannelScale ColorGradient { get; set; }
+
+        /// <summary>Which ramp <see cref="ColorGradient"/> reads off. An id rather
+        /// than colours, because the actual colours depend on the surface and the
+        /// model does not know the theme.</summary>
+        public string ColorRampId { get; set; }
+
         public double MinRadius { get; set; }
         public double MaxRadius { get; set; }
-        public bool HasSizeRange { get; set; }
 
-        /// <summary>
-        /// True while the size column still spans its natural range, so area can be
-        /// anchored at zero and twice the value really is twice the ink. It goes
-        /// false once the user filters the size column down to a window, or when
-        /// zero is meaningless for the column (a date's zero is 1899): the area then
-        /// spans <see cref="SizeMin"/>..<see cref="SizeMax"/> instead.
-        /// </summary>
-        public bool SizeAnchoredAtZero { get; set; }
+        public bool HasSizeRange => SizeScale?.HasRange == true;
 
-        /// <summary>The radius a size value gets - area-proportional, so radius by sqrt.</summary>
+        /// <summary>The radius a size value gets. The AREA carries the number, so
+        /// the channel fraction goes through a square root; the floor only exists so
+        /// the smallest marks stay visible.</summary>
         public double RadiusFor(double value)
         {
             if (!HasSizeRange)
@@ -147,18 +158,7 @@ namespace PlayniteCharts.Model
                 return (MinRadius + MaxRadius) / 2;
             }
 
-            // the AREA carries the number. Anchored at zero twice the value is
-            // twice the ink - the honest default - but once the range is a window
-            // the user chose, zero is off-screen and every bubble would come out
-            // near-max; there the area spans the window instead.
-            var t = SizeAnchoredAtZero
-                ? value / SizeMax
-                : (value - SizeMin) / (SizeMax - SizeMin);
-
-            t = Math.Max(0, Math.Min(1, t));
-
-            // the floor only exists so the smallest marks stay visible
-            return Math.Max(MinRadius, MaxRadius * Math.Sqrt(t));
+            return Math.Max(MinRadius, MaxRadius * Math.Sqrt(SizeScale.Fraction(value)));
         }
 
         public int TotalGames { get; set; }
@@ -184,7 +184,14 @@ namespace PlayniteCharts.Model
 
             var colorField = GameColumns.Get(config.ColorFieldId);
             var shapeField = GameColumns.Get(config.ShapeFieldId);
-            m.ColorScale = colorField != null ? new CategoryScale(colorField, domainSource, colorCapacity) : null;
+
+            // a numeric colour column gets a ramp, not eight bins: "critic score" cut
+            // into arbitrary categories says nothing, a gradient says it at a glance
+            var colorIsNumber = colorField != null && colorField.IsContinuous;
+            m.ColorRampId = view.ColorRampId;
+            m.ColorScale = colorField != null && !colorIsNumber
+                ? new CategoryScale(colorField, domainSource, colorCapacity)
+                : null;
             m.ShapeScale = shapeField != null ? new CategoryScale(shapeField, domainSource, shapeCapacity) : null;
             m.HoverFields = (view.HoverFieldIds ?? new List<string>())
                 .Select(GameColumns.Get).Where(f => f != null).ToList();
@@ -203,58 +210,18 @@ namespace PlayniteCharts.Model
                 return 0;
             };
 
-            // size scale: area-proportional (radius by sqrt) between the configured bounds
+            // Both graded channels ask the same question of the same helper. Size
+            // takes the zero anchor where it is honest, because area encodes
+            // magnitude; a colour ramp never does, because its ends ARE the ends of
+            // the range - there is nothing for a zero to anchor.
             var minR = Math.Max(3.0, view.MinBubbleSize);
             var maxR = Math.Max(minR + 1, view.MaxBubbleSize);
-            double sizeMin = 0, sizeMax = 0;
-            var haveSize = false;
-            var zeroAnchored = false;
-            if (m.SizeField != null)
-            {
-                var vals = games.Select(g => read(m.SizeField, g)).Where(v => v.HasValue).Select(v => v.Value).ToList();
-                if (vals.Count > 0)
-                {
-                    sizeMin = vals.Min();
-                    sizeMax = vals.Max();
-
-                    // A narrowed filter on this column is the user saying "this is
-                    // the range I am looking at", so the bubbles have to spread
-                    // across it - keeping the zero anchor would squash a 200-400h
-                    // window into the top third of the ramp and every game would
-                    // look the same size. Filter bounds sit at the domain edge as
-                    // null, so an untouched slider leaves the anchor alone.
-                    var window = (view.Filters ?? new List<FilterConfig>())
-                        .FirstOrDefault(f => f.FieldId == m.SizeField.Id && !f.IsInert);
-                    var windowed = false;
-                    if (window != null)
-                    {
-                        if (window.Lower.HasValue && window.Lower.Value > sizeMin)
-                        {
-                            sizeMin = window.Lower.Value;
-                            windowed = true;
-                        }
-
-                        if (window.Upper.HasValue && window.Upper.Value < sizeMax)
-                        {
-                            sizeMax = window.Upper.Value;
-                        }
-                    }
-
-                    haveSize = sizeMax > sizeMin;
-
-                    // a date's zero is December 1899, so anchoring there makes every
-                    // release date the same size - dates always span their range
-                    zeroAnchored = !windowed && sizeMin >= 0 && sizeMax > 0
-                        && m.SizeField.Kind != FieldKind.Date;
-                }
-            }
-
             m.MinRadius = minR;
             m.MaxRadius = maxR;
-            m.SizeMin = sizeMin;
-            m.SizeMax = sizeMax;
-            m.HasSizeRange = haveSize;
-            m.SizeAnchoredAtZero = zeroAnchored;
+            m.SizeScale = ChannelScale.For(m.SizeField, games, view.Filters, read, true);
+            m.ColorGradient = colorIsNumber
+                ? ChannelScale.For(colorField, games, view.Filters, read, false)
+                : null;
 
             var defaultR = m.SizeField == null ? (minR + maxR) / 2 : minR;
 
@@ -272,13 +239,24 @@ namespace PlayniteCharts.Model
                 }
 
                 var r = defaultR;
-                if (m.SizeField != null)
+                if (m.SizeField != null && m.HasSizeRange)
                 {
                     var s = read(m.SizeField, g);
-                    if (s.HasValue && haveSize)
+                    if (s.HasValue)
                     {
                         r = m.RadiusFor(s.Value);
                     }
+                }
+
+                // a game with no value on a ramped colour column sits at the bottom
+                // of the ramp and says so in the hover card, rather than vanishing
+                var colorT = 0.0;
+                string colorKey = null;
+                if (m.ColorGradient != null)
+                {
+                    var cv = read(colorField, g);
+                    colorT = cv.HasValue ? m.ColorGradient.Fraction(cv.Value) : 0;
+                    colorKey = cv.HasValue ? colorField.Format(cv.Value) : null;
                 }
 
                 // user score dominates: a scored game outranks any unscored one
@@ -295,8 +273,9 @@ namespace PlayniteCharts.Model
                     Y = y.Value,
                     Radius = r,
                     ColorSlot = m.ColorScale?.Slot(g) ?? 0,
+                    ColorT = colorT,
                     ShapeSlot = m.ShapeScale?.Slot(g) ?? 0,
-                    ColorKey = m.ColorScale?.Key(g),
+                    ColorKey = m.ColorScale != null ? m.ColorScale.Key(g) : colorKey,
                     ShapeKey = m.ShapeScale?.Key(g)
                 });
             }

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Playnite.SDK;
 using Playnite.SDK.Models;
+using PlayniteCharts.Controls;
 using PlayniteCharts.Model;
 using PlayniteCharts.ViewModels;
 
@@ -52,6 +53,7 @@ namespace PlayniteCharts.DevHarness
         public bool ShowPlot => true;
         public bool HasFilters => Filters.Count > 0;
         public ViewSettings View { get; } = new ViewSettings();
+        public IReadOnlyList<ColorRamp> ColorRamps => ColorRamp.All;
         public string SourceSummary => "720 games";
 
         public List<GameColumn> XFields => GameColumns.Continuous;

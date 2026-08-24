@@ -19,6 +19,7 @@ namespace PlayniteCharts.Model
         private List<FilterConfig> filters = new List<FilterConfig>();
         private bool showLegend = true;
         private bool showTitles;
+        private string colorRampId = "blue";
         private bool missingAsZero;
         private double minBubbleSize = 3;
         private double maxBubbleSize = 12;
@@ -47,6 +48,14 @@ namespace PlayniteCharts.Model
         {
             get => showTitles;
             set => SetValue(ref showTitles, value);
+        }
+
+        /// <summary>Which ramp a numeric colour column is drawn with. Appearance, so
+        /// it is shared: the ramp you like is the ramp you like on every plot.</summary>
+        public string ColorRampId
+        {
+            get => colorRampId;
+            set => SetValue(ref colorRampId, string.IsNullOrEmpty(value) ? "blue" : value);
         }
 
         /// <summary>Plot a game with no value on a numeric channel at 0 instead of

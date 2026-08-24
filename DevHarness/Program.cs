@@ -81,6 +81,26 @@ namespace PlayniteCharts.DevHarness
                 HoverFieldIds = GameColumns.All.Select(f => f.Id).ToList()
             };
 
+            // every ramp, on both surfaces, over a numeric colour column - the only
+            // way to see whether a ramp actually reads against the ground it sits on
+            var rampCase = new PlotConfig
+            {
+                Name = "Ramps", XFieldId = "playtime", YFieldId = "criticscore",
+                SizeFieldId = string.Empty, ColorFieldId = "userscore", ShapeFieldId = string.Empty
+            };
+
+            foreach (var ramp in ColorRamp.All)
+            {
+                var rm = PlotModel.Build(rampCase, new ViewSettings { ColorRampId = ramp.Id },
+                    games, games, PlotTheme.SeriesCapacity, MarkShapes.Count);
+                foreach (var s in surfaces)
+                {
+                    var file = Path.Combine(outDir, $"ramp-{ramp.Id}-{s.Name}.png");
+                    Render(rm, s.Color, file, false);
+                    Console.WriteLine(file);
+                }
+            }
+
             foreach (var cfg in cases)
             {
                 var model = PlotModel.Build(cfg, view, games, games, PlotTheme.SeriesCapacity, MarkShapes.Count);

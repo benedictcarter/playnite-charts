@@ -54,6 +54,9 @@ namespace PlayniteCharts.Controls
         private PlotTheme theme;
         private PlotPoint hovered;
 
+        private const int RampSteps = 64;
+        private Brush[] rampBrushes;
+
         // measuring one FormattedText per game is the expensive half of drawing
         // titles, and hovering re-runs the layout - so measure each name once
         private readonly Dictionary<PlotPoint, FormattedText> labelCache =
@@ -112,6 +115,7 @@ namespace PlayniteCharts.Controls
         {
             var c = (BubblePlotControl)d;
             c.labelCache.Clear();
+            c.rampBrushes = null;
             c.shadowCache.Clear();
             c.hovered = null;
             c.Redraw();
@@ -126,7 +130,9 @@ namespace PlayniteCharts.Controls
         /// <summary>Forces the palette to be re-picked, e.g. after a theme switch.</summary>
         public void InvalidateTheme()
         {
-            // the ink colour is baked into each measured label
+            // the ink colour is baked into each measured label, and the ramp is
+            // stepped for the surface it is drawn on
+            rampBrushes = null;
             labelCache.Clear();
             shadowCache.Clear();
             theme = null;
@@ -241,7 +247,7 @@ namespace PlayniteCharts.Controls
 
                 var c = new Point(ToScreenX(m, p.X), ToScreenY(m, p.Y));
                 var geo = MarkShapes.Create(p.ShapeSlot, c, p.Radius);
-                dc.DrawGeometry(t.SeriesBrush(p.ColorSlot), t.RingPen, geo);
+                dc.DrawGeometry(Fill(m, t, p), t.RingPen, geo);
             }
 
             dc.Pop();
@@ -299,10 +305,45 @@ namespace PlayniteCharts.Controls
                 }
             }
 
+            if (m.ColorGradient != null)
+            {
+                yield return m.ColorGradient.Field.Name;
+            }
+
             if (m.SizeField != null)
             {
                 yield return m.SizeField.Name;
             }
+        }
+
+        /// <summary>
+        /// A mark's fill: a fixed palette slot for a categorical colour column, a
+        /// point on the ramp for a numeric one. Ramp brushes are cached per model
+        /// because a 5000-game plot would otherwise freeze one Brush per bubble.
+        /// </summary>
+        private Brush Fill(PlotModel m, PlotTheme t, PlotPoint p)
+        {
+            if (m.ColorGradient == null)
+            {
+                return t.SeriesBrush(p.ColorSlot);
+            }
+
+            // 64 steps is finer than the eye resolves on a 12px mark and turns the
+            // ramp into a small fixed set of frozen brushes
+            var step = (int)Math.Round(p.ColorT * (RampSteps - 1));
+            if (rampBrushes == null)
+            {
+                var ramp = ColorRamp.Get(m.ColorRampId);
+                rampBrushes = new Brush[RampSteps];
+                for (var i = 0; i < RampSteps; i++)
+                {
+                    var b = new SolidColorBrush(ramp.Sample((double)i / (RampSteps - 1), t.IsDark));
+                    b.Freeze();
+                    rampBrushes[i] = b;
+                }
+            }
+
+            return rampBrushes[step < 0 ? 0 : step > RampSteps - 1 ? RampSteps - 1 : step];
         }
 
         private double MeasureLegend(PlotModel m, PlotTheme t)
@@ -319,6 +360,15 @@ namespace PlayniteCharts.Controls
                 foreach (var v in SizeLegendValues(m))
                 {
                     max = Math.Max(max, Text(m.SizeField.Format(v), t.InkBrush, 11).Width + m.MaxRadius * 2 + 10);
+                }
+            }
+
+            if (m.ColorGradient != null)
+            {
+                foreach (var v in m.ColorGradient.KeyValues())
+                {
+                    max = Math.Max(max, Text(m.ColorGradient.Field.Format(v), t.InkBrush, 11).Width
+                        + GradientBarWidth + 10);
                 }
             }
 
@@ -343,6 +393,13 @@ namespace PlayniteCharts.Controls
                     y += RowHeight;
                 }
 
+                y += 8;
+            }
+
+            if (m.ColorGradient != null)
+            {
+                y = LegendHeading(dc, t, area, y, m.ColorGradient.Field.Name);
+                y = DrawGradientKey(dc, m, t, area, y);
                 y += 8;
             }
 
@@ -379,23 +436,46 @@ namespace PlayniteCharts.Controls
             }
         }
 
+        private const double GradientBarWidth = 13;
+        private const double GradientBarHeight = 96;
+
+        /// <summary>
+        /// The key for a ramped colour column: the ramp itself as a bar, with the
+        /// ends and the middle labelled. A swatch list would be a lie here - the
+        /// values in between are real, not rounded into bins.
+        /// </summary>
+        private double DrawGradientKey(DrawingContext dc, PlotModel m, PlotTheme t, Rect area, double y)
+        {
+            var ramp = ColorRamp.Get(m.ColorRampId);
+            var stops = ramp.Stops(t.IsDark);
+            var bar = new Rect(area.Left, y + 2, GradientBarWidth, GradientBarHeight);
+
+            // top of the bar is the top of the range, so it reads with the y axis
+            var brush = new LinearGradientBrush(
+                new GradientStopCollection(stops.Select((c, i) =>
+                    new GradientStop(c, 1 - (double)i / (stops.Length - 1)))),
+                new Point(0, 0), new Point(0, 1));
+            brush.Freeze();
+            dc.DrawRoundedRectangle(brush, t.SizeRingPen, bar, 3, 3);
+
+            var values = m.ColorGradient.KeyValues().Reverse().ToList();
+            for (var i = 0; i < values.Count; i++)
+            {
+                var f = values.Count == 1 ? 0 : (double)i / (values.Count - 1);
+                var label = Ellipsize(m.ColorGradient.Field.Format(values[i]), t.InkBrush, 11,
+                    Math.Max(20, area.Width - GradientBarWidth - 10));
+                var cy = bar.Top + f * bar.Height;
+                dc.DrawText(label, new Point(bar.Right + 7,
+                    Math.Min(bar.Bottom - label.Height, Math.Max(bar.Top, cy - label.Height / 2))));
+            }
+
+            return bar.Bottom + 4;
+        }
+
         /// <summary>Smallest / middle / largest, deduped - the usual three-circle key.</summary>
         private static IEnumerable<double> SizeLegendValues(PlotModel m)
         {
-            if (!m.HasSizeRange)
-            {
-                yield return m.SizeMax;
-                yield break;
-            }
-
-            yield return m.SizeMin;
-            var mid = (m.SizeMin + m.SizeMax) / 2;
-            if (Math.Abs(mid - m.SizeMin) > 1e-9 && Math.Abs(mid - m.SizeMax) > 1e-9)
-            {
-                yield return mid;
-            }
-
-            yield return m.SizeMax;
+            return m.SizeScale == null ? Enumerable.Empty<double>() : m.SizeScale.KeyValues();
         }
 
         private double LegendHeading(DrawingContext dc, PlotTheme t, Rect area, double y, string title)
@@ -690,7 +770,7 @@ namespace PlayniteCharts.Controls
                 var ringR = p.Radius + 3.5;
                 dc.DrawEllipse(null, new Pen(t.SurfaceBrush, 3), c, ringR, ringR);
                 dc.DrawEllipse(null, new Pen(t.InkBrush, 1.5), c, ringR, ringR);
-                dc.DrawGeometry(t.SeriesBrush(p.ColorSlot), t.RingPen, MarkShapes.Create(p.ShapeSlot, c, p.Radius));
+                dc.DrawGeometry(Fill(m, t, p), t.RingPen, MarkShapes.Create(p.ShapeSlot, c, p.Radius));
 
                 if (dragging)
                 {
@@ -875,7 +955,7 @@ namespace PlayniteCharts.Controls
             AddChannel(m.XField, m.XField.Display(p.Game));
             AddChannel(m.YField, m.YField.Display(p.Game));
             AddChannel(m.SizeField, m.SizeField?.Display(p.Game));
-            AddChannel(m.ColorScale?.Field, p.ColorKey);
+            AddChannel(m.ColorScale?.Field ?? m.ColorGradient?.Field, p.ColorKey);
             AddChannel(m.ShapeScale?.Field, p.ShapeKey);
 
             var title = Text(p.Game.Name ?? "(no name)", t.InkBrush, 12, FontWeights.SemiBold);

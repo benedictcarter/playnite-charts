@@ -48,6 +48,9 @@ namespace PlayniteCharts.ViewModels
 
         public ObservableCollection<PlotConfig> Plots { get; }
 
+        /// <summary>The ramps a numeric colour column can be drawn with.</summary>
+        public IReadOnlyList<Controls.ColorRamp> ColorRamps => Controls.ColorRamp.All;
+
         /// <summary>Filters, hover and appearance: shared by every plot, so that
         /// switching visualisation explores the same set of games.</summary>
         public ViewSettings View => plugin.Settings.View;

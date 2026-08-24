@@ -54,10 +54,19 @@ namespace PlayniteCharts.Controls
         private static readonly string[] LightSeries = PaletteData.LightSeries;
         private static readonly string[] DarkSeries = PaletteData.DarkSeries;
 
+        /// <summary>
+        /// Whether the last theme built was a dark one. A ramp preview swatch in the
+        /// settings panel is not inside the chart and has no surface of its own to
+        /// measure, so it borrows the chart's answer. Worst case - nothing has been
+        /// drawn yet - it previews the light steps and corrects on the first render.
+        /// </summary>
+        public static bool LastWasDark { get; private set; }
+
         public static PlotTheme ForSurface(Color surface)
         {
             var lum = 0.2126 * Lin(surface.R) + 0.7152 * Lin(surface.G) + 0.0722 * Lin(surface.B);
             var dark = lum < 0.25;
+            LastWasDark = dark;
             var t = new PlotTheme
             {
                 IsDark = dark,
