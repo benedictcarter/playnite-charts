@@ -19,6 +19,7 @@ namespace PlayniteCharts.Model
         private string shapeFieldId = "source";
         private List<string> hoverFieldIds = GameColumns.All.Select(f => f.Id).ToList();
         private bool showLegend = true;
+        private bool missingAsZero;
         private double minBubbleSize = 3;
         private double maxBubbleSize = 12;
 
@@ -66,6 +67,14 @@ namespace PlayniteCharts.Model
             set => SetValue(ref hoverFieldIds, value);
         }
 
+        /// <summary>Plot a game with no value on a numeric channel at 0 instead of
+        /// dropping it. Dates are exempt - 0 there is 1899.</summary>
+        public bool MissingAsZero
+        {
+            get => missingAsZero;
+            set => SetValue(ref missingAsZero, value);
+        }
+
         public bool ShowLegend
         {
             get => showLegend;
@@ -96,6 +105,7 @@ namespace PlayniteCharts.Model
                 ColorFieldId = ColorFieldId,
                 ShapeFieldId = ShapeFieldId,
                 HoverFieldIds = new List<string>(HoverFieldIds ?? new List<string>()),
+                MissingAsZero = MissingAsZero,
                 ShowLegend = ShowLegend,
                 MinBubbleSize = MinBubbleSize,
                 MaxBubbleSize = MaxBubbleSize

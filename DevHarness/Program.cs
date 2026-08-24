@@ -65,7 +65,8 @@ namespace PlayniteCharts.DevHarness
                     Name = "playtime vs critic score",
                     XFieldId = "playtime", YFieldId = "criticscore",
                     SizeFieldId = string.Empty, ColorFieldId = "genre", ShapeFieldId = string.Empty,
-                    HoverFieldIds = new List<string> { "name" }
+                    HoverFieldIds = new List<string> { "name" },
+                    MissingAsZero = true
                 }
             };
 

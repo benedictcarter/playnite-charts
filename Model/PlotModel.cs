@@ -158,6 +158,20 @@ namespace PlayniteCharts.Model
             m.HoverFields = (config.HoverFieldIds ?? new List<string>())
                 .Select(GameColumns.Get).Where(f => f != null).ToList();
 
+            // "count a missing number as 0": only for numeric columns. A missing date
+            // read as 0 would land the game on 30 December 1899 and stretch the axis
+            // across a century of empty space.
+            Func<GameColumn, Game, double?> read = (f, g) =>
+            {
+                var v = f.GetNumber(g);
+                if (v.HasValue || !config.MissingAsZero || f.Kind != FieldKind.Numeric)
+                {
+                    return v;
+                }
+
+                return 0;
+            };
+
             // size scale: area-proportional (radius by sqrt) between the configured bounds
             var minR = Math.Max(3.0, config.MinBubbleSize);
             var maxR = Math.Max(minR + 1, config.MaxBubbleSize);
@@ -165,7 +179,7 @@ namespace PlayniteCharts.Model
             var haveSize = false;
             if (m.SizeField != null)
             {
-                var vals = games.Select(g => m.SizeField.GetNumber(g)).Where(v => v.HasValue).Select(v => v.Value).ToList();
+                var vals = games.Select(g => read(m.SizeField, g)).Where(v => v.HasValue).Select(v => v.Value).ToList();
                 if (vals.Count > 0)
                 {
                     sizeMin = vals.Min();
@@ -184,8 +198,8 @@ namespace PlayniteCharts.Model
 
             foreach (var g in games)
             {
-                var x = m.XField.GetNumber(g);
-                var y = m.YField.GetNumber(g);
+                var x = read(m.XField, g);
+                var y = read(m.YField, g);
                 if (!x.HasValue || !y.HasValue)
                 {
                     continue;
@@ -194,7 +208,7 @@ namespace PlayniteCharts.Model
                 var r = defaultR;
                 if (m.SizeField != null)
                 {
-                    var s = m.SizeField.GetNumber(g);
+                    var s = read(m.SizeField, g);
                     if (s.HasValue && haveSize)
                     {
                         r = m.RadiusFor(s.Value);

@@ -194,6 +194,9 @@
                     <TextBlock Text="APPEARANCE" Style="{StaticResource SectionHeader}" />
                     <CheckBox Content="Show legend" IsChecked="{Binding ShowLegend}" Margin="0,3"
                               Foreground="{DynamicResource TextBrush}" />
+                    <CheckBox Content="Count a missing number as 0" IsChecked="{Binding MissingAsZero}" Margin="0,3"
+                              Foreground="{DynamicResource TextBrush}"
+                              ToolTip="Plot games with no user score, no critic score etc. at zero instead of leaving them out. Dates are never zeroed." />
 
                     <DockPanel Margin="0,6,0,0">
                         <TextBlock DockPanel.Dock="Left" Text="Smallest" Width="70" VerticalAlignment="Center"
