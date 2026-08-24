@@ -130,6 +130,15 @@ namespace PlayniteCharts.Model
         public double MaxRadius { get; set; }
         public bool HasSizeRange { get; set; }
 
+        /// <summary>
+        /// True while the size column still spans its natural range, so area can be
+        /// anchored at zero and twice the value really is twice the ink. It goes
+        /// false once the user filters the size column down to a window, or when
+        /// zero is meaningless for the column (a date's zero is 1899): the area then
+        /// spans <see cref="SizeMin"/>..<see cref="SizeMax"/> instead.
+        /// </summary>
+        public bool SizeAnchoredAtZero { get; set; }
+
         /// <summary>The radius a size value gets - area-proportional, so radius by sqrt.</summary>
         public double RadiusFor(double value)
         {
@@ -138,10 +147,11 @@ namespace PlayniteCharts.Model
                 return (MinRadius + MaxRadius) / 2;
             }
 
-            // the AREA carries the number, and it is anchored at zero: twice the
-            // value is twice the ink. Data that goes below zero has no honest zero
-            // anchor, so there the area spans the observed range instead.
-            var t = SizeMin >= 0 && SizeMax > 0
+            // the AREA carries the number. Anchored at zero twice the value is
+            // twice the ink - the honest default - but once the range is a window
+            // the user chose, zero is off-screen and every bubble would come out
+            // near-max; there the area spans the window instead.
+            var t = SizeAnchoredAtZero
                 ? value / SizeMax
                 : (value - SizeMin) / (SizeMax - SizeMin);
 
@@ -198,6 +208,7 @@ namespace PlayniteCharts.Model
             var maxR = Math.Max(minR + 1, view.MaxBubbleSize);
             double sizeMin = 0, sizeMax = 0;
             var haveSize = false;
+            var zeroAnchored = false;
             if (m.SizeField != null)
             {
                 var vals = games.Select(g => read(m.SizeField, g)).Where(v => v.HasValue).Select(v => v.Value).ToList();
@@ -205,7 +216,36 @@ namespace PlayniteCharts.Model
                 {
                     sizeMin = vals.Min();
                     sizeMax = vals.Max();
+
+                    // A narrowed filter on this column is the user saying "this is
+                    // the range I am looking at", so the bubbles have to spread
+                    // across it - keeping the zero anchor would squash a 200-400h
+                    // window into the top third of the ramp and every game would
+                    // look the same size. Filter bounds sit at the domain edge as
+                    // null, so an untouched slider leaves the anchor alone.
+                    var window = (view.Filters ?? new List<FilterConfig>())
+                        .FirstOrDefault(f => f.FieldId == m.SizeField.Id && !f.IsInert);
+                    var windowed = false;
+                    if (window != null)
+                    {
+                        if (window.Lower.HasValue && window.Lower.Value > sizeMin)
+                        {
+                            sizeMin = window.Lower.Value;
+                            windowed = true;
+                        }
+
+                        if (window.Upper.HasValue && window.Upper.Value < sizeMax)
+                        {
+                            sizeMax = window.Upper.Value;
+                        }
+                    }
+
                     haveSize = sizeMax > sizeMin;
+
+                    // a date's zero is December 1899, so anchoring there makes every
+                    // release date the same size - dates always span their range
+                    zeroAnchored = !windowed && sizeMin >= 0 && sizeMax > 0
+                        && m.SizeField.Kind != FieldKind.Date;
                 }
             }
 
@@ -214,6 +254,7 @@ namespace PlayniteCharts.Model
             m.SizeMin = sizeMin;
             m.SizeMax = sizeMax;
             m.HasSizeRange = haveSize;
+            m.SizeAnchoredAtZero = zeroAnchored;
 
             var defaultR = m.SizeField == null ? (minR + maxR) / 2 : minR;
 

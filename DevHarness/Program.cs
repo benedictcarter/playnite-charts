@@ -97,6 +97,28 @@ namespace PlayniteCharts.DevHarness
                     Console.WriteLine($"{file}  ({model.PlottedGames} of {model.TotalGames} plotted)");
                 }
 
+                if (!string.IsNullOrEmpty(cfg.SizeFieldId))
+                {
+                    // the size column narrowed to a window: the bubbles must spread
+                    // across it rather than all coming out near-max
+                    var field = GameColumns.Get(cfg.SizeFieldId);
+                    var span = games.Select(g => field.GetNumber(g)).Where(v => v.HasValue)
+                        .Select(v => v.Value).ToList();
+                    var lo = span.Min() + (span.Max() - span.Min()) * 0.7;
+                    var windowed = PlotModel.Build(cfg, new ViewSettings
+                    {
+                        HoverFieldIds = view.HoverFieldIds,
+                        Filters = new List<FilterConfig>
+                        {
+                            new FilterConfig { FieldId = cfg.SizeFieldId, Lower = lo }
+                        }
+                    }, games.Where(g => field.GetNumber(g) >= lo).ToList(), games,
+                        PlotTheme.SeriesCapacity, MarkShapes.Count);
+                    var windowFile = Path.Combine(outDir, $"{Slug(cfg.Name)}-sizewindow.png");
+                    Render(windowed, surfaces[0].Color, windowFile, false);
+                    Console.WriteLine(windowFile);
+                }
+
                 var titled = PlotModel.Build(cfg, new ViewSettings
                 {
                     HoverFieldIds = view.HoverFieldIds,
